@@ -16,4 +16,6 @@ object GC {
   def alloc_atomic(info: Ptr[ClassType], size: CSize): Ptr[Byte] = extern
   @name("scalanative_collect")
   def collect(): Unit = extern
+  @name("scalanative_write_barrier")
+  def write_barrier(obj: Object): Unit = extern
 }

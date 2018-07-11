@@ -22,7 +22,7 @@ class InsertWriteBarrier extends Pass {
 
     insts.foreach {
       case inst @ Inst.Let(_, Op.Store(_: Type.RefKind, Val.Local(n, _), _, _))
-        if fields.contains(n) =>
+          if fields.contains(n) =>
         buf += inst
         buf.call(barrierSig, barrier, Seq(fields(n)), Next.None)
       case inst =>

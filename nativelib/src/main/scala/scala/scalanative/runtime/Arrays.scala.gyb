@@ -84,6 +84,7 @@ object Array {
 
 %{
    alloc = 'GC.alloc_atomic' if T != 'Object' else 'GC.alloc'
+   barrier = '' if T != 'Object' else 'GC.write_barrier(this)'
 }%
 
 final class ${T}Array private () extends Array[${T}] {
@@ -105,8 +106,10 @@ final class ${T}Array private () extends Array[${T}] {
   @inline def apply(i: Int): ${T} =
     !at(i)
 
-  @inline def update(i: Int, value: ${T}): Unit =
+  @inline def update(i: Int, value: ${T}): Unit = {
     !at(i) = value
+    ${barrier}
+  }
 
   @inline protected override def clone(): ${T}Array = {
     val arrinfo = typeof[${T}Array].cast[Ptr[ClassType]]

@@ -1,4 +1,4 @@
-// ###sourceLocation(file: "/home/denys/native/nativelib/src/main/scala/scala/scalanative/runtime/Arrays.scala.gyb", line: 1)
+// ###sourceLocation(file: "/home/denys/.src/native/nativelib/src/main/scala/scala/scalanative/runtime/Arrays.scala.gyb", line: 1)
 package scala.scalanative
 package runtime
 
@@ -88,11 +88,11 @@ object Array {
   }
 }
 
-// ###sourceLocation(file: "/home/denys/native/nativelib/src/main/scala/scala/scalanative/runtime/Arrays.scala.gyb", line: 82)
+// ###sourceLocation(file: "/home/denys/.src/native/nativelib/src/main/scala/scala/scalanative/runtime/Arrays.scala.gyb", line: 82)
 
-// ###sourceLocation(file: "/home/denys/native/nativelib/src/main/scala/scala/scalanative/runtime/Arrays.scala.gyb", line: 84)
+// ###sourceLocation(file: "/home/denys/.src/native/nativelib/src/main/scala/scala/scalanative/runtime/Arrays.scala.gyb", line: 84)
 
-// ###sourceLocation(file: "/home/denys/native/nativelib/src/main/scala/scala/scalanative/runtime/Arrays.scala.gyb", line: 88)
+// ###sourceLocation(file: "/home/denys/.src/native/nativelib/src/main/scala/scala/scalanative/runtime/Arrays.scala.gyb", line: 89)
 
 final class BooleanArray private () extends Array[Boolean] {
   import Array._
@@ -113,8 +113,10 @@ final class BooleanArray private () extends Array[Boolean] {
   @inline def apply(i: Int): Boolean =
     !at(i)
 
-  @inline def update(i: Int, value: Boolean): Unit =
+  @inline def update(i: Int, value: Boolean): Unit = {
     !at(i) = value
+
+  }
 
   @inline protected override def clone(): BooleanArray = {
     val arrinfo = typeof[BooleanArray].cast[Ptr[ClassType]]
@@ -141,9 +143,9 @@ object BooleanArray {
   }
 }
 
-// ###sourceLocation(file: "/home/denys/native/nativelib/src/main/scala/scala/scalanative/runtime/Arrays.scala.gyb", line: 84)
+// ###sourceLocation(file: "/home/denys/.src/native/nativelib/src/main/scala/scala/scalanative/runtime/Arrays.scala.gyb", line: 84)
 
-// ###sourceLocation(file: "/home/denys/native/nativelib/src/main/scala/scala/scalanative/runtime/Arrays.scala.gyb", line: 88)
+// ###sourceLocation(file: "/home/denys/.src/native/nativelib/src/main/scala/scala/scalanative/runtime/Arrays.scala.gyb", line: 89)
 
 final class CharArray private () extends Array[Char] {
   import Array._
@@ -164,8 +166,10 @@ final class CharArray private () extends Array[Char] {
   @inline def apply(i: Int): Char =
     !at(i)
 
-  @inline def update(i: Int, value: Char): Unit =
+  @inline def update(i: Int, value: Char): Unit = {
     !at(i) = value
+
+  }
 
   @inline protected override def clone(): CharArray = {
     val arrinfo = typeof[CharArray].cast[Ptr[ClassType]]
@@ -192,9 +196,9 @@ object CharArray {
   }
 }
 
-// ###sourceLocation(file: "/home/denys/native/nativelib/src/main/scala/scala/scalanative/runtime/Arrays.scala.gyb", line: 84)
+// ###sourceLocation(file: "/home/denys/.src/native/nativelib/src/main/scala/scala/scalanative/runtime/Arrays.scala.gyb", line: 84)
 
-// ###sourceLocation(file: "/home/denys/native/nativelib/src/main/scala/scala/scalanative/runtime/Arrays.scala.gyb", line: 88)
+// ###sourceLocation(file: "/home/denys/.src/native/nativelib/src/main/scala/scala/scalanative/runtime/Arrays.scala.gyb", line: 89)
 
 final class ByteArray private () extends Array[Byte] {
   import Array._
@@ -215,8 +219,10 @@ final class ByteArray private () extends Array[Byte] {
   @inline def apply(i: Int): Byte =
     !at(i)
 
-  @inline def update(i: Int, value: Byte): Unit =
+  @inline def update(i: Int, value: Byte): Unit = {
     !at(i) = value
+
+  }
 
   @inline protected override def clone(): ByteArray = {
     val arrinfo = typeof[ByteArray].cast[Ptr[ClassType]]
@@ -243,9 +249,9 @@ object ByteArray {
   }
 }
 
-// ###sourceLocation(file: "/home/denys/native/nativelib/src/main/scala/scala/scalanative/runtime/Arrays.scala.gyb", line: 84)
+// ###sourceLocation(file: "/home/denys/.src/native/nativelib/src/main/scala/scala/scalanative/runtime/Arrays.scala.gyb", line: 84)
 
-// ###sourceLocation(file: "/home/denys/native/nativelib/src/main/scala/scala/scalanative/runtime/Arrays.scala.gyb", line: 88)
+// ###sourceLocation(file: "/home/denys/.src/native/nativelib/src/main/scala/scala/scalanative/runtime/Arrays.scala.gyb", line: 89)
 
 final class ShortArray private () extends Array[Short] {
   import Array._
@@ -266,8 +272,10 @@ final class ShortArray private () extends Array[Short] {
   @inline def apply(i: Int): Short =
     !at(i)
 
-  @inline def update(i: Int, value: Short): Unit =
+  @inline def update(i: Int, value: Short): Unit = {
     !at(i) = value
+
+  }
 
   @inline protected override def clone(): ShortArray = {
     val arrinfo = typeof[ShortArray].cast[Ptr[ClassType]]
@@ -294,9 +302,9 @@ object ShortArray {
   }
 }
 
-// ###sourceLocation(file: "/home/denys/native/nativelib/src/main/scala/scala/scalanative/runtime/Arrays.scala.gyb", line: 84)
+// ###sourceLocation(file: "/home/denys/.src/native/nativelib/src/main/scala/scala/scalanative/runtime/Arrays.scala.gyb", line: 84)
 
-// ###sourceLocation(file: "/home/denys/native/nativelib/src/main/scala/scala/scalanative/runtime/Arrays.scala.gyb", line: 88)
+// ###sourceLocation(file: "/home/denys/.src/native/nativelib/src/main/scala/scala/scalanative/runtime/Arrays.scala.gyb", line: 89)
 
 final class IntArray private () extends Array[Int] {
   import Array._
@@ -317,8 +325,10 @@ final class IntArray private () extends Array[Int] {
   @inline def apply(i: Int): Int =
     !at(i)
 
-  @inline def update(i: Int, value: Int): Unit =
+  @inline def update(i: Int, value: Int): Unit = {
     !at(i) = value
+
+  }
 
   @inline protected override def clone(): IntArray = {
     val arrinfo = typeof[IntArray].cast[Ptr[ClassType]]
@@ -345,9 +355,9 @@ object IntArray {
   }
 }
 
-// ###sourceLocation(file: "/home/denys/native/nativelib/src/main/scala/scala/scalanative/runtime/Arrays.scala.gyb", line: 84)
+// ###sourceLocation(file: "/home/denys/.src/native/nativelib/src/main/scala/scala/scalanative/runtime/Arrays.scala.gyb", line: 84)
 
-// ###sourceLocation(file: "/home/denys/native/nativelib/src/main/scala/scala/scalanative/runtime/Arrays.scala.gyb", line: 88)
+// ###sourceLocation(file: "/home/denys/.src/native/nativelib/src/main/scala/scala/scalanative/runtime/Arrays.scala.gyb", line: 89)
 
 final class LongArray private () extends Array[Long] {
   import Array._
@@ -368,8 +378,10 @@ final class LongArray private () extends Array[Long] {
   @inline def apply(i: Int): Long =
     !at(i)
 
-  @inline def update(i: Int, value: Long): Unit =
+  @inline def update(i: Int, value: Long): Unit = {
     !at(i) = value
+
+  }
 
   @inline protected override def clone(): LongArray = {
     val arrinfo = typeof[LongArray].cast[Ptr[ClassType]]
@@ -396,9 +408,9 @@ object LongArray {
   }
 }
 
-// ###sourceLocation(file: "/home/denys/native/nativelib/src/main/scala/scala/scalanative/runtime/Arrays.scala.gyb", line: 84)
+// ###sourceLocation(file: "/home/denys/.src/native/nativelib/src/main/scala/scala/scalanative/runtime/Arrays.scala.gyb", line: 84)
 
-// ###sourceLocation(file: "/home/denys/native/nativelib/src/main/scala/scala/scalanative/runtime/Arrays.scala.gyb", line: 88)
+// ###sourceLocation(file: "/home/denys/.src/native/nativelib/src/main/scala/scala/scalanative/runtime/Arrays.scala.gyb", line: 89)
 
 final class FloatArray private () extends Array[Float] {
   import Array._
@@ -419,8 +431,10 @@ final class FloatArray private () extends Array[Float] {
   @inline def apply(i: Int): Float =
     !at(i)
 
-  @inline def update(i: Int, value: Float): Unit =
+  @inline def update(i: Int, value: Float): Unit = {
     !at(i) = value
+
+  }
 
   @inline protected override def clone(): FloatArray = {
     val arrinfo = typeof[FloatArray].cast[Ptr[ClassType]]
@@ -447,9 +461,9 @@ object FloatArray {
   }
 }
 
-// ###sourceLocation(file: "/home/denys/native/nativelib/src/main/scala/scala/scalanative/runtime/Arrays.scala.gyb", line: 84)
+// ###sourceLocation(file: "/home/denys/.src/native/nativelib/src/main/scala/scala/scalanative/runtime/Arrays.scala.gyb", line: 84)
 
-// ###sourceLocation(file: "/home/denys/native/nativelib/src/main/scala/scala/scalanative/runtime/Arrays.scala.gyb", line: 88)
+// ###sourceLocation(file: "/home/denys/.src/native/nativelib/src/main/scala/scala/scalanative/runtime/Arrays.scala.gyb", line: 89)
 
 final class DoubleArray private () extends Array[Double] {
   import Array._
@@ -470,8 +484,10 @@ final class DoubleArray private () extends Array[Double] {
   @inline def apply(i: Int): Double =
     !at(i)
 
-  @inline def update(i: Int, value: Double): Unit =
+  @inline def update(i: Int, value: Double): Unit = {
     !at(i) = value
+
+  }
 
   @inline protected override def clone(): DoubleArray = {
     val arrinfo = typeof[DoubleArray].cast[Ptr[ClassType]]
@@ -498,9 +514,9 @@ object DoubleArray {
   }
 }
 
-// ###sourceLocation(file: "/home/denys/native/nativelib/src/main/scala/scala/scalanative/runtime/Arrays.scala.gyb", line: 84)
+// ###sourceLocation(file: "/home/denys/.src/native/nativelib/src/main/scala/scala/scalanative/runtime/Arrays.scala.gyb", line: 84)
 
-// ###sourceLocation(file: "/home/denys/native/nativelib/src/main/scala/scala/scalanative/runtime/Arrays.scala.gyb", line: 88)
+// ###sourceLocation(file: "/home/denys/.src/native/nativelib/src/main/scala/scala/scalanative/runtime/Arrays.scala.gyb", line: 89)
 
 final class ObjectArray private () extends Array[Object] {
   import Array._
@@ -521,8 +537,10 @@ final class ObjectArray private () extends Array[Object] {
   @inline def apply(i: Int): Object =
     !at(i)
 
-  @inline def update(i: Int, value: Object): Unit =
+  @inline def update(i: Int, value: Object): Unit = {
     !at(i) = value
+    GC.write_barrier(this)
+  }
 
   @inline protected override def clone(): ObjectArray = {
     val arrinfo = typeof[ObjectArray].cast[Ptr[ClassType]]
