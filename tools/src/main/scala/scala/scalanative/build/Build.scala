@@ -50,7 +50,7 @@ object Build {
    *  @return `outpath`, the path to the resulting native binary.
    */
   def build(config: Config, outpath: Path): Path = {
-    val driver       = optimizer.Driver.default(config.mode)
+    val driver       = optimizer.Driver.default(config.gc, config.mode)
     val linkerResult = ScalaNative.link(config, driver)
 
     if (linkerResult.unresolved.nonEmpty) {

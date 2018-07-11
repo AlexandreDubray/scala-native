@@ -77,12 +77,14 @@ object Driver {
   )
 
   /** Create driver with default pipeline for this configuration. */
-  def default(mode: Mode): Driver = {
+  def default(gc: build.GC, mode: Mode): Driver = {
     val optPasses = mode match {
       case Mode.Debug   => fastOptPasses
       case Mode.Release => fullOptPasses
     }
-    empty.withPasses(injectionPasses ++ optPasses ++ loweringPasses)
+    val gcPasses =
+      if (gc.needsWriteBarrier) Seq(pass.InsertWriteBarrier) else Seq()
+    empty.withPasses(injectionPasses ++ optPasses ++ gcPasses ++ loweringPasses)
   }
 
   /** Create an empty pass-lesss driver. */
