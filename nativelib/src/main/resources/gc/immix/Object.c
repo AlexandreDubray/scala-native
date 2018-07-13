@@ -4,6 +4,11 @@
 #include "Block.h"
 #include "Log.h"
 #include "utils/MathUtils.h"
+#include "metadata/BlockMeta.h"
+
+#define LAST_FIELD_OFFSET -1
+
+#define DEBUG_PRINT
 
 word_t *Object_LastWord(Object *object) {
     size_t size = Object_Size(object);
@@ -14,7 +19,7 @@ word_t *Object_LastWord(Object *object) {
 }
 
 Object *Object_getInnerPointer(Heap *heap, BlockMeta *blockMeta, word_t *word,
-                               ObjectMeta *wordMeta) {
+                               ObjectMeta *wordMeta, bool collectingOld) {
     int stride;
     word_t *blockStart;
     if (BlockMeta_ContainsLargeObjects(blockMeta)) {
@@ -35,7 +40,7 @@ Object *Object_getInnerPointer(Heap *heap, BlockMeta *blockMeta, word_t *word,
         currentMeta -= stride;
     }
     Object *object = (Object *)current;
-    if (ObjectMeta_IsAllocated(currentMeta) &&
+    if (ObjectMeta_IsAlive(currentMeta, collectingOld) &&
         word < current + Object_Size(object) / WORD_SIZE) {
         return object;
     } else {
@@ -43,7 +48,7 @@ Object *Object_getInnerPointer(Heap *heap, BlockMeta *blockMeta, word_t *word,
     }
 }
 
-Object *Object_GetUnmarkedObject(Heap *heap, word_t *word) {
+Object *Object_GetUnmarkedObject(Heap *heap, word_t *word, bool collectingOld) {
     BlockMeta *blockMeta =
         Block_GetBlockMeta(heap->blockMetaStart, heap->heapStart, word);
 
@@ -56,16 +61,21 @@ Object *Object_GetUnmarkedObject(Heap *heap, word_t *word) {
     ObjectMeta *wordMeta = Bytemap_Get(heap->bytemap, word);
     if (ObjectMeta_IsPlaceholder(wordMeta) || ObjectMeta_IsMarked(wordMeta)) {
         return NULL;
-    } else if (ObjectMeta_IsAllocated(wordMeta)) {
+    } else if (ObjectMeta_IsAlive(wordMeta, collectingOld)) {
         return (Object *)word;
     } else {
         return Object_getInnerPointer(heap, blockMeta, word, wordMeta);
     }
 }
 
-void Object_Mark(Heap *heap, Object *object, ObjectMeta *objectMeta) {
+
+void Object_Mark(Heap *heap, Object *object, ObjectMeta *objectMeta, bool collectingOld) {
     // Mark the object itself
-    ObjectMeta_SetMarked(objectMeta);
+    if(!collectingOld) {
+        ObjectMeta_SetMarked(objectMeta);
+    } else {
+        ObjectMeta_SetAllocated(objectMeta);
+    }
 
     BlockMeta *blockMeta = Block_GetBlockMeta(
         heap->blockMetaStart, heap->heapStart, (word_t *)object);

@@ -3,6 +3,8 @@
 #include "Block.h"
 #include <stdio.h>
 #include <memory.h>
+#include "State.h"
+#include "Marker.h"
 
 bool Allocator_getNextLine(Allocator *allocator);
 bool Allocator_newBlock(Allocator *allocator);
@@ -18,6 +20,10 @@ void Allocator_Init(Allocator *allocator, BlockAllocator *blockAllocator,
     BlockList_Init(&allocator->recycledBlocks, blockMetaStart);
 
     allocator->recycledBlockCount = 0;
+
+    // For remembering old object that might contains inter-generational
+    // pointers
+    Stack_Init(allocator->rememberedObjects, INITIAL_STACK_SIZE);
 
     Allocator_InitCursors(allocator);
 }

@@ -6,6 +6,7 @@
 #include "Object.h"
 #include "Log.h"
 #include "headers/ObjectHeader.h"
+#include "Marker.h"
 
 inline static int LargeAllocator_sizeToLinkedListIndex(size_t size) {
     assert(size >= MIN_BLOCK_SIZE);
@@ -142,8 +143,9 @@ void LargeAllocator_Clear(LargeAllocator *allocator) {
     }
 }
 
+<<<<<<< HEAD
 void LargeAllocator_Sweep(LargeAllocator *allocator, BlockMeta *blockMeta,
-                          word_t *blockStart) {
+                          word_t *blockStart, bool collectingOld) {
     // Objects that are larger than a block
     // are always allocated at the begining the smallest possible superblock.
     // Any gaps at the end can be filled with large objects, that are smaller
@@ -156,7 +158,7 @@ void LargeAllocator_Sweep(LargeAllocator *allocator, BlockMeta *blockMeta,
     ObjectMeta *firstObject = Bytemap_Get(allocator->bytemap, blockStart);
     assert(!ObjectMeta_IsFree(firstObject));
     BlockMeta *lastBlock = blockMeta + superblockSize - 1;
-    if (superblockSize > 1 && !ObjectMeta_IsMarked(firstObject)) {
+    if (superblockSize > 1 && !ObjectMeta_IsAlive(firstObject, collectingOld)) {
         // release free superblock starting from the first object
         BlockAllocator_AddFreeBlocks(allocator->blockAllocator, blockMeta,
                                      superblockSize - 1);
@@ -169,7 +171,7 @@ void LargeAllocator_Sweep(LargeAllocator *allocator, BlockMeta *blockMeta,
     word_t *chunkStart = NULL;
 
     // the tail end of the first object
-    if (!ObjectMeta_IsMarked(firstObject)) {
+    if (!ObjectMeta_IsAlive(firstObject, collectingOld)) {
         chunkStart = lastBlockStart;
     }
     ObjectMeta_Sweep(firstObject);
@@ -184,7 +186,7 @@ void LargeAllocator_Sweep(LargeAllocator *allocator, BlockMeta *blockMeta,
                 chunkStart = current;
             }
         } else {
-            if (ObjectMeta_IsMarked(currentMeta)) {
+            if (ObjectMeta_IsAlive(currentMeta, collectingOld)) {
                 size_t currentSize = (current - chunkStart) * WORD_SIZE;
                 LargeAllocator_AddChunk(allocator, (Chunk *)chunkStart,
                                         currentSize);

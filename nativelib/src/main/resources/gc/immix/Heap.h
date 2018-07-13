@@ -47,8 +47,9 @@ word_t *Heap_AllocSmall(Heap *heap, uint32_t objectSize);
 word_t *Heap_AllocLarge(Heap *heap, uint32_t objectSize);
 
 void Heap_Collect(Heap *heap, Stack *stack);
+void Heap_CollectOld(Heap *heap, Stack *stack);
 
-void Heap_Recycle(Heap *heap);
 void Heap_Grow(Heap *heap, uint32_t increment);
+void Heap_Recycle(Heap *heap, bool collectingOld);
 
 #endif // IMMIX_HEAP_H

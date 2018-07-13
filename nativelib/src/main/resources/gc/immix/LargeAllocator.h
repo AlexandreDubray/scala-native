@@ -32,6 +32,6 @@ Object *LargeAllocator_GetBlock(LargeAllocator *allocator,
                                 size_t requestedBlockSize);
 void LargeAllocator_Clear(LargeAllocator *allocator);
 void LargeAllocator_Sweep(LargeAllocator *allocator, BlockMeta *blockMeta,
-                          word_t *blockStart);
+                          word_t *blockStart, bool collectingOld);
 
 #endif // IMMIX_LARGEALLOCATOR_H

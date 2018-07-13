@@ -172,9 +172,19 @@ word_t *Heap_AllocLarge(Heap *heap, uint32_t size) {
             assert(Heap_IsWordInHeap(heap, (word_t *)object));
             return (word_t *)object;
         } else {
+            Heap_CollectOld(heap, stack);
+
+            object = LargeAllocator_GetBlock(heap->largeAllocator, size);
+
+            if (object != NULL) {
+                Object_SetObjectType(&object->header, object_large);
+                Object_SetSize(&object->header, size);
+                return Object_ToMutatorAddress(object);
+            }
             size_t increment = MathUtils_DivAndRoundUp(size, BLOCK_TOTAL_SIZE);
             uint32_t pow2increment = 1U << MathUtils_Log2Ceil(increment);
-            Heap_Grow(heap, pow2increment);
+
+            Heap_Grow(heap, size);
 
             object = LargeAllocator_GetBlock(&largeAllocator, size);
             assert(object != NULL);
@@ -192,6 +202,12 @@ NOINLINE word_t *Heap_allocSmallSlow(Heap *heap, uint32_t size) {
         goto done;
 
     Heap_Collect(heap, &stack);
+    object = (Object *)Allocator_Alloc(&allocator, size);
+
+    if (object != NULL)
+        goto done;
+
+    Heap_CollectOld(heap, &stack);
     object = (Object *)Allocator_Alloc(&allocator, size);
 
     if (object != NULL)
@@ -256,11 +272,36 @@ void Heap_Collect(Heap *heap, Stack *stack) {
     if (stats != NULL) {
         start_ns = scalanative_nano_time();
     }
-    Marker_MarkRoots(heap, stack);
+    Marker_MarkRoots(heap, stack, false);
     if (stats != NULL) {
         sweep_start_ns = scalanative_nano_time();
     }
-    Heap_Recycle(heap);
+    Heap_Recycle(heap, false);
+    if (stats != NULL) {
+        end_ns = scalanative_nano_time();
+        Stats_RecordCollection(stats, start_ns, sweep_start_ns, end_ns);
+    }
+#ifdef DEBUG_PRINT
+    printf("End collect\n");
+    fflush(stdout);
+#endif
+}
+
+void Heap_CollectOld(Heap *heap, Stack *stack) {
+    uint64_t start_ns, sweep_start_ns, end_ns;
+    Stats *stats = heap->stats;
+#ifdef DEBUG_PRINT
+    printf("\nCollect\n");
+    fflush(stdout);
+#endif
+    if (stats != NULL) {
+        start_ns = scalanative_nano_time();
+    }
+    Marker_MarkRoots(heap, stack, true);
+    if (stats != NULL) {
+        sweep_start_ns = scalanative_nano_time();
+    }
+    Heap_Recycle(heap, true);
     if (stats != NULL) {
         end_ns = scalanative_nano_time();
         Stats_RecordCollection(stats, start_ns, sweep_start_ns, end_ns);
@@ -290,7 +331,7 @@ bool Heap_shouldGrow(Heap *heap) {
            4 * unavailableBlockCount > blockCount;
 }
 
-void Heap_Recycle(Heap *heap) {
+void Heap_Recycle(Heap *heap, bool collectingOld) {
     Allocator_Clear(&allocator);
     LargeAllocator_Clear(&largeAllocator);
     BlockAllocator_Clear(&blockAllocator);
@@ -303,10 +344,10 @@ void Heap_Recycle(Heap *heap) {
         int size = 1;
         assert(!BlockMeta_IsSuperblockMiddle(current));
         if (BlockMeta_IsSimpleBlock(current)) {
-            Block_Recycle(&allocator, current, currentBlockStart, lineMetas);
+            Block_Recycle(&allocator, current, currentBlockStart, lineMetas, collectingOld);
         } else if (BlockMeta_IsSuperblockStart(current)) {
             size = BlockMeta_SuperblockSize(current);
-            LargeAllocator_Sweep(&largeAllocator, current, currentBlockStart);
+            LargeAllocator_Sweep(&largeAllocator, current, currentBlockStart, collectingOld);
         } else {
             assert(BlockMeta_IsFree(current));
             BlockAllocator_AddFreeBlocks(&blockAllocator, current, 1);
@@ -317,7 +358,7 @@ void Heap_Recycle(Heap *heap) {
         lineMetas += LINE_COUNT * size;
     }
 
-    if (Heap_shouldGrow(heap)) {
+    if (collectingOld && Heap_shouldGrow(heap)) {
         double growth;
         if (heap->heapSize < EARLY_GROWTH_THRESHOLD) {
             growth = EARLY_GROWTH_RATE;
@@ -336,9 +377,14 @@ void Heap_Recycle(Heap *heap) {
     }
     BlockAllocator_SweepDone(&blockAllocator);
     if (!Allocator_CanInitCursors(&allocator)) {
-        Heap_exitWithOutOfMemory();
+        if (collectingOld) {
+            Heap_CollectOld(heap, stack);
+        } else {
+            Heap_exitWithOutOfMemory();
+        }
+    } else {
+        Allocator_InitCursors(&allocator);
     }
-    Allocator_InitCursors(&allocator);
 }
 
 void Heap_Grow(Heap *heap, uint32_t incrementInBlocks) {

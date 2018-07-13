@@ -29,6 +29,10 @@ static inline bool ObjectMeta_IsMarked(ObjectMeta *metadata) {
     return *metadata == om_marked;
 }
 
+static inline bool ObjectMeta_IsAlive(ObjectMeta *metadata, bool isOld) {
+    return (!isOld && ObjectMeta_IsAllocated(metadata)) || (isOld && ObjectMeta_IsMarked(metadata));
+}
+
 static inline void ObjectMeta_SetFree(ObjectMeta *metadata) {
     *metadata = om_free;
 }
@@ -82,7 +86,7 @@ static inline void ObjectMeta_Sweep(ObjectMeta *cursor) {
     //    } else {
     //        ObjectMeta_SetFree(cursor)
     //    }
-    *cursor = (*cursor & 0x04) >> 1;
+    *cursor = (*cursor & 0x04);
 }
 
 #endif // IMMIX_OBJECTMETA_H
