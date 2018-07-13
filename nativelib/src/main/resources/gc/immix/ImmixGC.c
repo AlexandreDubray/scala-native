@@ -49,4 +49,15 @@ void *scalanative_alloc_atomic(void *info, size_t size) {
 void scalanative_collect() { Heap_Collect(heap, stack); }
 
 void scalanative_write_barrier(void *object) {
+    Object *obj = Object_FromMutatorAddress(object);
+    if (Object_IsMarked(&obj->header)) {
+        if (!Bitmap_GetBit(heap->allocator->oldObjectDirty, (void *)obj)) {
+            Bitmap_SetBit(heap->allocator->oldObjectDirty, (void *)obj);
+            bool overflow =
+                Stack_Push(heap->allocator->oldObjectToRoot, (void *)obj);
+            if (overflow) {
+                Stack_DoubleSize(heap->allocator->oldObjectToRoot);
+            }
+        }
+    }
 }

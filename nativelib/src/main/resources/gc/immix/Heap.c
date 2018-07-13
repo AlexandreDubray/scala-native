@@ -133,16 +133,29 @@ word_t *Heap_allocSmallSlow(Heap *heap, uint32_t size) {
     }
 
     if (object == NULL) {
-        Heap_Grow(heap, size);
 
-        object = (Object *)Allocator_Alloc(heap->allocator, size);
-        assert(object != NULL);
+        Heap_CollectOld(heap, stack);
+        Object *object = (Object *)Allocator_Alloc(heap->allocator, size);
 
-        ObjectHeader *objectHeader = &object->header;
+        if (object != NULL) {
+            ObjectHeader *objectHeader = &object->header;
 
-        Object_SetObjectType(objectHeader, object_standard);
-        Object_SetSize(objectHeader, size);
-        Object_SetAllocated(objectHeader);
+            Object_SetObjectType(objectHeader, object_standard);
+            Object_SetSize(objectHeader, size);
+            Object_SetAllocated(objectHeader);
+        } else {
+
+            Heap_Grow(heap, size);
+
+            object = (Object *)Allocator_Alloc(heap->allocator, size);
+            assert(object != NULL);
+
+            ObjectHeader *objectHeader = &object->header;
+
+            Object_SetObjectType(objectHeader, object_standard);
+            Object_SetSize(objectHeader, size);
+            Object_SetAllocated(objectHeader);
+        }
     }
 
     return Object_ToMutatorAddress(object);
@@ -183,6 +196,7 @@ void Heap_Collect(Heap *heap, Stack *stack) {
     printf("\nCollect\n");
     fflush(stdout);
 #endif
+    collectingOld = false;
     Marker_MarkRoots(heap, stack);
     Heap_Recycle(heap);
 
@@ -190,6 +204,12 @@ void Heap_Collect(Heap *heap, Stack *stack) {
     printf("End collect\n");
     fflush(stdout);
 #endif
+}
+
+void Heap_CollectOld(Heap *heap, Stack *stack) {
+    collectingOld = true;
+    Marker_MarkRoots(heap, stack);
+    Heap_Recycle(heap);
 }
 
 void Heap_Recycle(Heap *heap) {
@@ -204,7 +224,11 @@ void Heap_Recycle(Heap *heap) {
     word_t *current = heap->heapStart;
     while (current != heap->heapEnd) {
         BlockHeader *blockHeader = (BlockHeader *)current;
-        Block_Recycle(heap->allocator, blockHeader);
+        if (!collectingOld) {
+            Block_Recycle(heap->allocator, blockHeader);
+        } else {
+            Block_RecycleOld(heap->allocator, blockHeader);
+        }
         // block_print(blockHeader);
         current += WORDS_IN_BLOCK;
     }
@@ -271,6 +295,9 @@ void Heap_Grow(Heap *heap, size_t increment) {
 
     heap->allocator->blockCount += increment / WORDS_IN_BLOCK;
     heap->allocator->freeBlockCount += increment / WORDS_IN_BLOCK;
+
+    // Incrementing Bitmap for inter-generational pointer
+    Bitmap_Grow(heap->allocator->oldObjectDirty, increment);
 }
 
 /** Grows the large heap by at least `increment` words */

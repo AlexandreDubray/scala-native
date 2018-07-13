@@ -4,6 +4,8 @@
 #include "GCTypes.h"
 #include <stddef.h>
 #include "datastructures/BlockList.h"
+#include "datastructures/Bitmap.h"
+#include "datastructures/Stack.h"
 
 typedef struct {
     word_t *heapStart;
@@ -19,6 +21,8 @@ typedef struct {
     word_t *largeCursor;
     word_t *largeLimit;
     size_t freeMemoryAfterCollection;
+    Bitmap *oldObjectDirty;
+    Stack *oldObjectToRoot;
 } Allocator;
 
 Allocator *Allocator_Create(word_t *, int);

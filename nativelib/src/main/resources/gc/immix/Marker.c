@@ -20,10 +20,19 @@ void Marker_Mark(Heap *heap, Stack *stack);
 void StackOverflowHandler_largeHeapOverflowHeapScan(Heap *heap, Stack *stack);
 bool StackOverflowHandler_smallHeapOverflowHeapScan(Heap *heap, Stack *stack);
 
+bool collectingOld = false;
+
 void Marker_markObject(Heap *heap, Stack *stack, Object *object) {
-    assert(!Object_IsMarked(&object->header));
     assert(Object_Size(&object->header) != 0);
-    Object_Mark(object);
+    if (!collectingOld) {
+        assert(!Object_IsMarked(&object->header));
+        Object_Mark(object);
+    } else {
+        // If we are collecting the old Generation, they are all marked
+        // and we unmark them if they are reachable
+        assert(Object_IsMarked(&object->header));
+        Object_Unmark(object);
+    }
     if (!overflow) {
         overflow = Stack_Push(stack, object);
     }
@@ -49,8 +58,14 @@ void Marker_markConservative(Heap *heap, Stack *stack, word_t *address) {
         object = Object_GetLargeObject(heap->largeAllocator, address);
     }
 
-    if (object != NULL && !Object_IsMarked(&object->header)) {
-        Marker_markObject(heap, stack, object);
+    if (!collectingOld) {
+        if (object != NULL && !Object_IsMarked(&object->header)) {
+            Marker_markObject(heap, stack, object);
+        }
+    } else {
+        if (object != NULL && Object_IsMarked(&object->header)) {
+            Marker_markObject(heap, stack, object);
+        }
     }
 }
 
@@ -67,9 +82,17 @@ void Marker_Mark(Heap *heap, Stack *stack) {
 
                 word_t *field = object->fields[i];
                 Object *fieldObject = Object_FromMutatorAddress(field);
-                if (heap_isObjectInHeap(heap, fieldObject) &&
-                    !Object_IsMarked(&fieldObject->header)) {
-                    Marker_markObject(heap, stack, fieldObject);
+
+                if (!collectingOld) {
+                    if (heap_isObjectInHeap(heap, fieldObject) &&
+                        !Object_IsMarked(&fieldObject->header)) {
+                        Marker_markObject(heap, stack, fieldObject);
+                    }
+                } else {
+                    if (heap_isObjectInHeap(heap, fieldObject) &&
+                        Object_IsMarked(&fieldObject->header)) {
+                        Marker_markObject(heap, stack, fieldObject);
+                    }
                 }
             }
         } else {
@@ -78,10 +101,19 @@ void Marker_Mark(Heap *heap, Stack *stack) {
             while (ptr_map[i] != LAST_FIELD_OFFSET) {
                 word_t *field = object->fields[ptr_map[i]];
                 Object *fieldObject = Object_FromMutatorAddress(field);
-                if (heap_isObjectInHeap(heap, fieldObject) &&
-                    !Object_IsMarked(&fieldObject->header)) {
-                    Marker_markObject(heap, stack, fieldObject);
+
+                if (!collectingOld) {
+                    if (heap_isObjectInHeap(heap, fieldObject) &&
+                        !Object_IsMarked(&fieldObject->header)) {
+                        Marker_markObject(heap, stack, fieldObject);
+                    }
+                } else {
+                    if (heap_isObjectInHeap(heap, fieldObject) &&
+                        Object_IsMarked(&fieldObject->header)) {
+                        Marker_markObject(heap, stack, fieldObject);
+                    }
                 }
+
                 ++i;
             }
         }
@@ -121,11 +153,35 @@ void Marker_markModules(Heap *heap, Stack *stack) {
     }
 }
 
+void Marker_markOld(Heap *heap, Stack *stack) {
+    Stack *roots = heap->allocator->oldObjectToRoot;
+    Bitmap *bitmap = heap->allocator->oldObjectDirty;
+    while (!Stack_IsEmpty(roots)) {
+        Object *object = (Object *)Stack_Pop(roots);
+        if (Bitmap_GetBit(bitmap, (void *)object)) {
+            Bitmap_ClearBit(bitmap, (void *)object);
+
+            assert(Object_Size(&object->header) != 0);
+
+            if (!overflow) {
+                overflow = Stack_Push(stack, object);
+            }
+        }
+    }
+    StackOverflowHandler_CheckForOverflow();
+}
+
 void Marker_MarkRoots(Heap *heap, Stack *stack) {
 
     Marker_markProgramStack(heap, stack);
 
     Marker_markModules(heap, stack);
+
+    // We need to trace inter-generational pointer only when we
+    // collect the young generation.
+    if (!collectingOld) {
+        Marker_markOld(heap, stack);
+    }
 
     Marker_Mark(heap, stack);
 }
