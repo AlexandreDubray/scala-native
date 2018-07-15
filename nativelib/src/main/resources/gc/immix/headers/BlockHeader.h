@@ -10,13 +10,13 @@
 typedef enum {
     block_free = 0x0,
     block_recyclable = 0x1,
-    block_unavailable = 0x2
+    block_unavailable = 0x2,
+    block_old = 0x3
 } BlockFlag;
 
 typedef struct {
     struct {
         uint8_t mark;
-        uint8_t old;
         uint8_t flags;
         int16_t first;
         int32_t nextBlock;
@@ -33,6 +33,11 @@ static inline bool Block_IsUnavailable(BlockHeader *blockHeader) {
 static inline bool Block_IsFree(BlockHeader *blockHeader) {
     return blockHeader->header.flags == block_free;
 }
+
+static inline bool Block_IsOld(BlockHeader *blockHeader) {
+    return blockHeader->header.flags == block_old;
+}
+
 static inline void Block_SetFlag(BlockHeader *blockHeader,
                                  BlockFlag blockFlag) {
     blockHeader->header.flags = blockFlag;
@@ -48,14 +53,6 @@ static inline void Block_Unmark(BlockHeader *blockHeader) {
 
 static inline void Block_Mark(BlockHeader *blockHeader) {
     blockHeader->header.mark = 1;
-}
-
-static inline bool Block_ContainsOld(BlockHeader *blockHeader) {
-    return blockHeader->header.old == 1;
-}
-
-static inline void Block_MarkOld(BlockHeader *blockHeader) {
-    blockHeader->header.old = 1;
 }
 
 static inline BlockHeader *Block_GetBlockHeader(word_t *word) {

@@ -5,6 +5,7 @@
 #include "Line.h"
 #include "Log.h"
 #include "utils/MathUtils.h"
+#include "Marker.h"
 
 Object *Object_NextLargeObject(Object *object) {
     size_t size = Object_ChunkSize(object);
@@ -142,7 +143,11 @@ Object *Object_GetLargeObject(LargeAllocator *allocator, word_t *word) {
 
 void Object_Mark(Object *object) {
     // Mark the object itself
-    Object_MarkObjectHeader(&object->header);
+    if (!collectingOld) {
+        Object_MarkObjectHeader(&object->header);
+    } else {
+        Object_SetAllocated(&object->header);
+    }
 
     if (!Object_IsLargeObject(&object->header)) {
         // Mark the block
@@ -160,30 +165,6 @@ void Object_Mark(Object *object) {
         for (int i = startIndex; i <= endIndex; i++) {
             LineHeader *lineHeader = Block_GetLineHeader(blockHeader, i);
             Line_Mark(lineHeader);
-        }
-    }
-}
-
-void Object_Unmark(Object *object) {
-    Object_SetAllocated(&object->header);
-
-    if (!Object_IsLargeObject(&object->header)) {
-        // We still need to mark the block so we do not
-        // reclaim it during the collection phase
-        BlockHeader *blockHeader = Block_GetBlockHeader((word_t *)object);
-        Block_Mark(blockHeader);
-
-        // Unmark all lines
-        int startIndex =
-            Block_GetLineIndexFromWord(blockHeader, (word_t *)object);
-        word_t *lastWord = (word_t *)Object_NextObject(object) - 1;
-        int endIndex = Block_GetLineIndexFromWord(blockHeader, lastWord);
-        assert(startIndex >= 0 && startIndex < LINE_COUNT);
-        assert(endIndex >= 0 && endIndex < LINE_COUNT);
-        assert(startIndex <= endIndex);
-        for (int i = startIndex; i <= endIndex; i++) {
-            LineHeader *lineHeader = Block_GetLineHeader(blockHeader, i);
-            Line_Unmark(lineHeader);
         }
     }
 }

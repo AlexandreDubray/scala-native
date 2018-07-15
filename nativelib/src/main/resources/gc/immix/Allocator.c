@@ -37,8 +37,6 @@ Allocator *Allocator_Create(word_t *heapStart, int blockCount) {
 
     // For remembering old object that might contains inter-generational
     // pointers
-    allocator->oldObjectDirty =
-        Bitmap_Alloc(blockCount * BLOCK_TOTAL_SIZE, heapStart);
     allocator->oldObjectToRoot = Stack_Alloc(INITIAL_STACK_SIZE);
 
     Allocator_InitCursors(allocator);

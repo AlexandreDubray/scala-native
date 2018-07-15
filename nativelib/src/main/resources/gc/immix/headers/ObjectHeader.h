@@ -17,6 +17,7 @@ typedef enum {
     object_free = 0x0,
     object_allocated = 0x1,
     object_marked = 0x2,
+    object_rooted = 0x3
 } ObjectFlag;
 
 typedef struct {
@@ -71,6 +72,14 @@ static inline void Object_SetFree(ObjectHeader *objectHeader) {
 
 static inline bool Object_IsAllocated(ObjectHeader *objectHeader) {
     return objectHeader->flag == object_allocated;
+}
+
+static inline void Object_SetRooted(ObjectHeader *objectHeader) {
+    objectHeader->flag = object_rooted;
+}
+
+static inline bool Object_IsRooted(ObjectHeader *objectHeader) {
+    return objectHeader->flag == object_rooted;
 }
 
 static inline bool Object_IsStandardObject(ObjectHeader *objectHeader) {

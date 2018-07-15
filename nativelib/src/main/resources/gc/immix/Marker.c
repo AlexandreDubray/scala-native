@@ -24,15 +24,9 @@ bool collectingOld = false;
 
 void Marker_markObject(Heap *heap, Stack *stack, Object *object) {
     assert(Object_Size(&object->header) != 0);
-    if (!collectingOld) {
-        assert(!Object_IsMarked(&object->header));
-        Object_Mark(object);
-    } else {
-        // If we are collecting the old Generation, they are all marked
-        // and we unmark them if they are reachable
-        assert(Object_IsMarked(&object->header));
-        Object_Unmark(object);
-    }
+    assert((!collectingOld && !ObjectIsMarked(&object->header)) ||
+           (collectingOld && Object_IsMarked(&object->header)));
+    Object_Mark(object);
     if (!overflow) {
         overflow = Stack_Push(stack, object);
     }
@@ -146,29 +140,30 @@ void Marker_markModules(Heap *heap, Stack *stack) {
 
     for (int i = 0; i < nb_modules; i++) {
         Object *object = Object_FromMutatorAddress(modules[i]);
-        if (heap_isObjectInHeap(heap, object) &&
-            !Object_IsMarked(&object->header)) {
-            Marker_markObject(heap, stack, object);
+        if (heap_isObjectInHeap(heap, object)) {
+            if (!collectingOld && !Object_IsMarked(&object->header)) {
+                Marker_markObject(heap, stack, object);
+            } else if (collectingOld && Object_IsMarked(&object->header)) {
+                Marker_markObject(heap, stack, object);
+            }
         }
     }
 }
 
 void Marker_markOld(Heap *heap, Stack *stack) {
     Stack *roots = heap->allocator->oldObjectToRoot;
-    Bitmap *bitmap = heap->allocator->oldObjectDirty;
     while (!Stack_IsEmpty(roots)) {
         Object *object = (Object *)Stack_Pop(roots);
-        if (Bitmap_GetBit(bitmap, (void *)object)) {
-            Bitmap_ClearBit(bitmap, (void *)object);
+        // We re-mark the old object
+        Object_Mark(object);
 
-            assert(Object_Size(&object->header) != 0);
+        assert(Object_Size(&object->header) != 0);
 
-            if (!overflow) {
-                overflow = Stack_Push(stack, object);
-            }
+        if (!overflow) {
+            overflow = Stack_Push(stack, object);
         }
+        StackOverflowHandler_CheckForOverflow();
     }
-    StackOverflowHandler_CheckForOverflow();
 }
 
 void Marker_MarkRoots(Heap *heap, Stack *stack) {

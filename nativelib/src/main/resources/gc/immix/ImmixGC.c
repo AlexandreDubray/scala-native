@@ -51,8 +51,8 @@ void scalanative_collect() { Heap_Collect(heap, stack); }
 void scalanative_write_barrier(void *object) {
     Object *obj = Object_FromMutatorAddress(object);
     if (Object_IsMarked(&obj->header)) {
-        if (!Bitmap_GetBit(heap->allocator->oldObjectDirty, (void *)obj)) {
-            Bitmap_SetBit(heap->allocator->oldObjectDirty, (void *)obj);
+        if (!Object_IsRooted(&obj->header)) {
+            Object_SetRooted(&obj->header);
             bool overflow =
                 Stack_Push(heap->allocator->oldObjectToRoot, (void *)obj);
             if (overflow) {

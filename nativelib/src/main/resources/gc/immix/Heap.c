@@ -295,9 +295,6 @@ void Heap_Grow(Heap *heap, size_t increment) {
 
     heap->allocator->blockCount += increment / WORDS_IN_BLOCK;
     heap->allocator->freeBlockCount += increment / WORDS_IN_BLOCK;
-
-    // Incrementing Bitmap for inter-generational pointer
-    Bitmap_Grow(heap->allocator->oldObjectDirty, increment);
 }
 
 /** Grows the large heap by at least `increment` words */
