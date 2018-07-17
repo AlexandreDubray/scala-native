@@ -4,6 +4,8 @@
 #include "Block.h"
 #include <stdio.h>
 #include <memory.h>
+#include "State.h"
+#include "Marker.h"
 
 BlockHeader *Allocator_getNextBlock(Allocator *allocator);
 bool Allocator_getNextLine(Allocator *allocator);
@@ -256,6 +258,17 @@ BlockHeader *Allocator_getNextBlock(Allocator *allocator) {
         block = BlockList_RemoveFirstBlock(&allocator->recycledBlocks);
     } else if (!BlockList_IsEmpty(&allocator->freeBlocks)) {
         block = BlockList_RemoveFirstBlock(&allocator->freeBlocks);
+    } else if (BlockList_IsEmpty(&allocator->freeBlocks)) {
+        if(!collectingOld) {
+            Heap_CollectOld(heap, stack);
+        }
+
+        if (BlockList_IsEmpty(&allocator->freeBlocks)) {
+            Heap_Grow(heap, BLOCK_TOTAL_SIZE);
+        }
+
+        block = BlockList_RemoveFirstBlock(&allocator->freeBlocks);
     }
+
     return block;
 }
