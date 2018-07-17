@@ -154,29 +154,31 @@ void Marker_markOld(Heap *heap, Stack *stack) {
     Stack *roots = heap->allocator->oldObjectToRoot;
     while (!Stack_IsEmpty(roots)) {
         Object *object = (Object *)Stack_Pop(roots);
-        // We re-mark the old object
-        Object_Mark(object);
 
         assert(Object_Size(&object->header) != 0);
+        assert(Object_IsRooted(&object->header));
+
+        // We re-mark the old object
+        Object_MarkObjectHeader(&object->header);
 
         if (!overflow) {
             overflow = Stack_Push(stack, object);
         }
-        StackOverflowHandler_CheckForOverflow();
     }
+    StackOverflowHandler_CheckForOverflow();
 }
 
 void Marker_MarkRoots(Heap *heap, Stack *stack) {
-
-    Marker_markProgramStack(heap, stack);
-
-    Marker_markModules(heap, stack);
 
     // We need to trace inter-generational pointer only when we
     // collect the young generation.
     if (!collectingOld) {
         Marker_markOld(heap, stack);
     }
+
+    Marker_markProgramStack(heap, stack);
+
+    Marker_markModules(heap, stack);
 
     Marker_Mark(heap, stack);
 }

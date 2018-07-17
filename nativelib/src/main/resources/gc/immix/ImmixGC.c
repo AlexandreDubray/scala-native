@@ -10,6 +10,7 @@
 #include "State.h"
 #include "utils/MathUtils.h"
 #include "Constants.h"
+#include "StackoverflowHandler.h"
 
 void scalanative_collect();
 
@@ -54,10 +55,7 @@ void scalanative_write_barrier(void *object) {
         if (!Object_IsRooted(&obj->header)) {
             Object_SetRooted(&obj->header);
             bool overflow =
-                Stack_Push(heap->allocator->oldObjectToRoot, (void *)obj);
-            if (overflow) {
-                Stack_DoubleSize(heap->allocator->oldObjectToRoot);
-            }
+                Stack_Push(heap->allocator->oldObjectToRoot, obj);
         }
     }
 }

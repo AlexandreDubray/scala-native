@@ -130,9 +130,7 @@ word_t *Heap_allocSmallSlow(Heap *heap, uint32_t size) {
         Object_SetObjectType(objectHeader, object_standard);
         Object_SetSize(objectHeader, size);
         Object_SetAllocated(objectHeader);
-    }
-
-    if (object == NULL) {
+    } else {
 
         Heap_CollectOld(heap, stack);
         Object *object = (Object *)Allocator_Alloc(heap->allocator, size);
@@ -197,9 +195,9 @@ void Heap_Collect(Heap *heap, Stack *stack) {
     fflush(stdout);
 #endif
     collectingOld = false;
+
     Marker_MarkRoots(heap, stack);
     Heap_Recycle(heap);
-
 #ifdef DEBUG_PRINT
     printf("End collect\n");
     fflush(stdout);
@@ -232,6 +230,7 @@ void Heap_Recycle(Heap *heap) {
         // block_print(blockHeader);
         current += WORDS_IN_BLOCK;
     }
+
     LargeAllocator_Sweep(heap->largeAllocator);
 
     if (Allocator_ShouldGrow(heap->allocator)) {
@@ -249,7 +248,6 @@ void Heap_Recycle(Heap *heap) {
 }
 
 void Heap_exitWithOutOfMemory() {
-    printf("Out of heap space\n");
     StackTrace_PrintStackTrace();
     exit(1);
 }

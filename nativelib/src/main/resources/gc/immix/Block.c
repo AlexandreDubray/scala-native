@@ -46,10 +46,10 @@ INLINE void Block_recycleMarkedLineOld(BlockHeader *blockHeader,
             Block_GetLineAddress(blockHeader, lineIndex) + WORDS_IN_LINE;
         while (object != NULL && (word_t *)object < lineEnd) {
             ObjectHeader *objectHeader = &object->header;
-            if (Object_IsMarked(objectHeader)) {
+            if (Object_IsAllocated(objectHeader)) {
+                Object_MarkObjectHeader(objectHeader);
+            } else {
                 Object_SetFree(objectHeader);
-            } else if (Object_IsAllocated(objectHeader)) {
-                Object_Mark(object);
             }
             object = Object_NextObject(object);
         }
@@ -76,7 +76,6 @@ void Block_Recycle(Allocator *allocator, BlockHeader *blockHeader) {
             Block_SetFlag(blockHeader, block_old);
 
             int16_t lineIndex = 0;
-            int lastRecyclable = NO_RECYCLABLE_LINE;
             while (lineIndex < LINE_COUNT) {
                 LineHeader *lineHeader =
                     Block_GetLineHeader(blockHeader, lineIndex);
@@ -85,37 +84,8 @@ void Block_Recycle(Allocator *allocator, BlockHeader *blockHeader) {
                 if (Line_IsMarked(lineHeader)) {
                     // Unmark line
                     Block_recycleMarkedLine(blockHeader, lineHeader, lineIndex);
-                    lineIndex++;
-                } else {
-                    // If the line is not marked, we need to merge all
-                    // continuous unmarked lines.
-
-                    // If it's the first free line, update the block header to
-                    // point to it.
-                    if (lastRecyclable == NO_RECYCLABLE_LINE) {
-                        blockHeader->header.first = lineIndex;
-                    } else {
-                        // Update the last recyclable line to point to the
-                        // current one
-                        Block_GetFreeLineHeader(blockHeader, lastRecyclable)
-                            ->next = lineIndex;
-                    }
-                    lastRecyclable = lineIndex;
-                    lineIndex++;
-                    Line_SetEmpty(lineHeader);
-                    allocator->freeMemoryAfterCollection += LINE_SIZE;
-                    uint8_t size = 1;
-                    while (lineIndex < LINE_COUNT &&
-                           !Line_IsMarked(lineHeader = Block_GetLineHeader(
-                                              blockHeader, lineIndex))) {
-                        size++;
-                        lineIndex++;
-                        Line_SetEmpty(lineHeader);
-                        allocator->freeMemoryAfterCollection += LINE_SIZE;
-                    }
-                    Block_GetFreeLineHeader(blockHeader, lastRecyclable)->size =
-                        size;
                 }
+                lineIndex++;
             }
         }
     }
@@ -128,6 +98,7 @@ void Block_RecycleOld(Allocator *allocator, BlockHeader *blockHeader) {
     if (Block_IsOld(blockHeader) && Block_IsMarked(blockHeader)) {
         int16_t lineIndex = 0;
         int lastRecyclable = NO_RECYCLABLE_LINE;
+        Block_Unmark(blockHeader);
 
         while (lineIndex < LINE_COUNT) {
             LineHeader *lineHeader =
@@ -169,6 +140,10 @@ void Block_RecycleOld(Allocator *allocator, BlockHeader *blockHeader) {
                     size;
             }
         }
+    } else {
+        Block_recycleUnmarkedBlock(allocator, blockHeader);
+        allocator->freeBlockCount++;
+        allocator->freeMemoryAfterCollection += BLOCK_TOTAL_SIZE;
     }
 }
 
