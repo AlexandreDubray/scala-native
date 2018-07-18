@@ -133,7 +133,7 @@ word_t *Heap_allocSmallSlow(Heap *heap, uint32_t size) {
     } else {
 
         Heap_CollectOld(heap, stack);
-        Object *object = (Object *)Allocator_Alloc(heap->allocator, size);
+        object = (Object *)Allocator_Alloc(heap->allocator, size);
 
         if (object != NULL) {
             ObjectHeader *objectHeader = &object->header;
