@@ -6,6 +6,7 @@
 #include "Object.h"
 #include "Log.h"
 #include "headers/ObjectHeader.h"
+#include "Marker.h"
 
 inline static int LargeAllocator_sizeToLinkedListIndex(size_t size) {
     assert(size >= MIN_BLOCK_SIZE);
@@ -168,9 +169,10 @@ void LargeAllocator_Sweep(LargeAllocator *allocator) {
     while (current != heapEnd) {
         assert(Bitmap_GetBit(allocator->bitmap, (ubyte_t *)current));
         ObjectHeader *currentHeader = &current->header;
-        if (Object_IsMarked(currentHeader)) {
-            Object_SetAllocated(currentHeader);
-
+        if (!collectingOld && Object_IsMarked(currentHeader)) {
+            current = Object_NextLargeObject(current);
+        } else if (collectingOld && Object_IsAllocated(currentHeader)) {
+            Object_MarkObjectHeader(currentHeader);
             current = Object_NextLargeObject(current);
         } else {
             size_t currentSize = Object_ChunkSize(current);
