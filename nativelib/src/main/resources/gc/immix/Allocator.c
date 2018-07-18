@@ -259,10 +259,7 @@ BlockHeader *Allocator_getNextBlock(Allocator *allocator) {
     } else if (!BlockList_IsEmpty(&allocator->freeBlocks)) {
         block = BlockList_RemoveFirstBlock(&allocator->freeBlocks);
     } else if (BlockList_IsEmpty(&allocator->freeBlocks)) {
-        if (BlockList_IsEmpty(&allocator->freeBlocks)) {
-            Heap_Grow(heap, BLOCK_TOTAL_SIZE);
-        }
-
+        Heap_Grow(heap, BLOCK_TOTAL_SIZE);
         block = BlockList_RemoveFirstBlock(&allocator->freeBlocks);
     }
 
