@@ -20,7 +20,7 @@ typedef struct {
     word_t *largeCursor;
     word_t *largeLimit;
     size_t freeMemoryAfterCollection;
-    Stack *oldObjectToRoot;
+    Stack *rememberedObjects;
 } Allocator;
 
 Allocator *Allocator_Create(word_t *, int);

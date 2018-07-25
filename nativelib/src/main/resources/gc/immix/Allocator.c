@@ -39,7 +39,7 @@ Allocator *Allocator_Create(word_t *heapStart, int blockCount) {
 
     // For remembering old object that might contains inter-generational
     // pointers
-    allocator->oldObjectToRoot = Stack_Alloc(INITIAL_STACK_SIZE);
+    allocator->rememberedObjects = Stack_Alloc(INITIAL_STACK_SIZE);
 
     Allocator_InitCursors(allocator);
 

@@ -17,13 +17,13 @@ typedef enum {
     object_free = 0x0,
     object_allocated = 0x1,
     object_marked = 0x2,
-    object_rooted = 0x3
 } ObjectFlag;
 
 typedef struct {
     uint32_t size;
     uint8_t type;
     uint8_t flag;
+    uint8_t remembered;
 } ObjectHeader;
 
 typedef struct {
@@ -74,12 +74,16 @@ static inline bool Object_IsAllocated(ObjectHeader *objectHeader) {
     return objectHeader->flag == object_allocated;
 }
 
-static inline void Object_SetRooted(ObjectHeader *objectHeader) {
-    objectHeader->flag = object_rooted;
+static inline void Object_SetRemembered(ObjectHeader *objectHeader) {
+    objectHeader->remembered = 1;
 }
 
-static inline bool Object_IsRooted(ObjectHeader *objectHeader) {
-    return objectHeader->flag == object_rooted;
+static inline void Object_SetUnremembered(ObjectHeader *objectHeader) {
+    objectHeader->remembered = 0;
+}
+
+static inline bool Object_IsRemembered(ObjectHeader *objectHeader) {
+    return objectHeader->remembered == 1;
 }
 
 static inline bool Object_IsStandardObject(ObjectHeader *objectHeader) {
