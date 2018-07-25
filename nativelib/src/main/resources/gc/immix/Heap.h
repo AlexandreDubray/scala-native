@@ -43,7 +43,7 @@ word_t *Heap_AllocLarge(Heap *heap, uint32_t objectSize);
 void Heap_Collect(Heap *heap, Stack *stack);
 void Heap_CollectOld(Heap *heap, Stack *stack);
 
-void Heap_Recycle(Heap *heap);
+void Heap_Recycle(Heap *heap, bool collectingOld);
 void Heap_Grow(Heap *heap, size_t increment);
 void Heap_GrowLarge(Heap *heap, size_t increment);
 

@@ -46,7 +46,7 @@ void StackOverflowHandler_CheckForOverflow() {
             }
 
             // At every iteration when a object is found, trace it
-            Marker_Mark(heap, stack);
+            Marker_Mark(heap, stack, false);
         }
     }
 }

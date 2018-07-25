@@ -194,10 +194,9 @@ void Heap_Collect(Heap *heap, Stack *stack) {
     printf("\nCollect\n");
     fflush(stdout);
 #endif
-    collectingOld = false;
 
-    Marker_MarkRoots(heap, stack);
-    Heap_Recycle(heap);
+    Marker_MarkRoots(heap, stack, false);
+    Heap_Recycle(heap, false);
 #ifdef DEBUG_PRINT
     printf("End collect\n");
     fflush(stdout);
@@ -205,12 +204,11 @@ void Heap_Collect(Heap *heap, Stack *stack) {
 }
 
 void Heap_CollectOld(Heap *heap, Stack *stack) {
-    collectingOld = true;
-    Marker_MarkRoots(heap, stack);
-    Heap_Recycle(heap);
+    Marker_MarkRoots(heap, stack, true);
+    Heap_Recycle(heap, true);
 }
 
-void Heap_Recycle(Heap *heap) {
+void Heap_Recycle(Heap *heap, bool collectingOld) {
     BlockList_Clear(&heap->allocator->recycledBlocks);
     BlockList_Clear(&heap->allocator->freeBlocks);
 
@@ -231,7 +229,7 @@ void Heap_Recycle(Heap *heap) {
         current += WORDS_IN_BLOCK;
     }
 
-    LargeAllocator_Sweep(heap->largeAllocator);
+    LargeAllocator_Sweep(heap->largeAllocator, collectingOld);
 
     if (Allocator_ShouldGrow(heap->allocator)) {
         double growth;

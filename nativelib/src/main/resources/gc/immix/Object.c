@@ -141,7 +141,7 @@ Object *Object_GetLargeObject(LargeAllocator *allocator, word_t *word) {
     }
 }
 
-void Object_Mark(Object *object) {
+void Object_Mark(Object *object, bool collectingOld) {
     // Mark the object itself
     if (!collectingOld) {
         Object_MarkObjectHeader(&object->header);

@@ -160,7 +160,7 @@ void LargeAllocator_clearFreeLists(LargeAllocator *allocator) {
     }
 }
 
-void LargeAllocator_Sweep(LargeAllocator *allocator) {
+void LargeAllocator_Sweep(LargeAllocator *allocator, bool collectingOld) {
     LargeAllocator_clearFreeLists(allocator);
 
     Object *current = (Object *)allocator->offset;
