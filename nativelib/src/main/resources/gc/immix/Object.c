@@ -7,6 +7,8 @@
 #include "utils/MathUtils.h"
 #include "Marker.h"
 
+#define DEBUG_PRINT
+
 Object *Object_NextLargeObject(Object *object) {
     size_t size = Object_ChunkSize(object);
     assert(size != 0);
@@ -33,7 +35,7 @@ static inline bool isWordAligned(word_t *word) {
 }
 
 Object *Object_getInLine(BlockHeader *blockHeader, int lineIndex,
-                         word_t *word) {
+                         word_t *word, bool youngObject) {
     assert(Line_ContainsObject(Block_GetLineHeader(blockHeader, lineIndex)));
 
     Object *current =
@@ -48,25 +50,25 @@ Object *Object_getInLine(BlockHeader *blockHeader, int lineIndex,
         next = Object_NextObject(next);
     }
 
-    if (Object_IsAllocated(&current->header) && word >= (word_t *)current &&
-        word < (word_t *)next) {
+    if ((youngObject && Object_IsAllocated(&current->header)) || (!youngObject && Object_IsMarked(&current->header))) {
+        if (word >= (word_t *)current && word < (word_t *)next) {
 #ifdef DEBUG_PRINT
-        if ((word_t *)current != word) {
-            printf("inner pointer: %p object: %p\n", word, current);
-            fflush(stdout);
-        }
+            if ((word_t *)current != word) {
+                printf("inner pointer: %p object: %p\n", word, current);
+                fflush(stdout);
+            }
 #endif
-        return current;
-    } else {
+            return current;
+        }
 #ifdef DEBUG_PRINT
         printf("ignoring %p\n", word);
         fflush(stdout);
 #endif
-        return NULL;
     }
+    return NULL;
 }
 
-Object *Object_GetObject(word_t *word) {
+Object *Object_findObject(word_t *word, bool youngObject) {
     BlockHeader *blockHeader = Block_GetBlockHeader(word);
 
     // Check if the word points on the block header
@@ -94,7 +96,7 @@ Object *Object_GetObject(word_t *word) {
     }
 
     if (Line_ContainsObject(Block_GetLineHeader(blockHeader, lineIndex))) {
-        return Object_getInLine(blockHeader, lineIndex, word);
+        return Object_getInLine(blockHeader, lineIndex, word, youngObject);
     } else {
 #ifdef DEBUG_PRINT
         printf("Word points to empty line %p\n", word);
@@ -102,6 +104,22 @@ Object *Object_GetObject(word_t *word) {
 #endif
         return NULL;
     }
+}
+
+Object *Object_GetYoungObject(word_t *word) {
+    return Object_findObject(word, true);
+}
+
+Object *Object_GetOldObject(word_t *word) {
+    return Object_findObject(word, false);
+}
+
+Object *Object_GetObject(word_t *word) {
+    Object *object = Object_GetYoungObject(word);
+    if (object == NULL) {
+        object = Object_GetOldObject(word);
+    }
+    return object;
 }
 
 Object *Object_getLargeInnerPointer(LargeAllocator *allocator, word_t *word) {
@@ -115,7 +133,7 @@ Object *Object_getLargeInnerPointer(LargeAllocator *allocator, word_t *word) {
     if (word < (word_t *)object + Object_ChunkSize(object) / WORD_SIZE &&
         object->rtti != NULL) {
 #ifdef DEBUG_PRINT
-        printf("large inner pointer: %p, object: %p\n", word, objectHeader);
+        printf("large inner pointer: %p, object: %p\n", word, object);
         fflush(stdout);
 #endif
         return object;
@@ -125,12 +143,12 @@ Object *Object_getLargeInnerPointer(LargeAllocator *allocator, word_t *word) {
     }
 }
 
-Object *Object_GetLargeObject(LargeAllocator *allocator, word_t *word) {
+Object *Object_findLargeObject(LargeAllocator *allocator, word_t *word, bool youngObject) {
     if (((word_t)word & LARGE_BLOCK_MASK) != (word_t)word) {
         word = (word_t *)((word_t)word & LARGE_BLOCK_MASK);
     }
     if (Bitmap_GetBit(allocator->bitmap, (ubyte_t *)word) &&
-        Object_IsAllocated(&((Object *)word)->header)) {
+        ((youngObject && Object_IsAllocated(&((Object *)word)->header)) || (!youngObject && Object_IsMarked(&((Object *)word)->header)))) {
         return (Object *)word;
     } else {
         Object *object = Object_getLargeInnerPointer(allocator, word);
@@ -139,6 +157,22 @@ Object *Object_GetLargeObject(LargeAllocator *allocator, word_t *word) {
                 word < (word_t *)Object_NextLargeObject(object)));
         return object;
     }
+}
+
+Object *Object_GetLargeYoungObject(LargeAllocator *allocator, word_t *word) {
+    return Object_findLargeObject(allocator, word, true);
+}
+
+Object *Object_GetLargeOldObject(LargeAllocator *allocator, word_t *word) {
+    return Object_findLargeObject(allocator, word, false);
+}
+
+Object *Object_GetLargeObject(LargeAllocator *allocator, word_t *word) {
+    Object *object = Object_GetLargeYoungObject(allocator,word);
+    if (object == NULL) {
+        object = Object_GetLargeOldObject(allocator, word);
+    }
+    return object;
 }
 
 void Object_Mark(Object *object, bool collectingOld) {

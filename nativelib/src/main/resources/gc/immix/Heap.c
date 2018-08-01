@@ -107,6 +107,16 @@ word_t *Heap_AllocLarge(Heap *heap, uint32_t objectSize) {
             Object_SetSize(&object->header, size);
             return Object_ToMutatorAddress(object);
         } else {
+            Heap_CollectOld(heap, stack);
+
+            object = LargeAllocator_GetBlock(heap->largeAllocator, size);
+
+            if (object != NULL) {
+                Object_SetObjectType(&object->header, object_large);
+                Object_SetSize(&object->header, size);
+                return Object_ToMutatorAddress(object);
+            }
+
             Heap_GrowLarge(heap, size);
 
             object = LargeAllocator_GetBlock(heap->largeAllocator, size);
@@ -194,7 +204,6 @@ void Heap_Collect(Heap *heap, Stack *stack) {
     printf("\nCollect\n");
     fflush(stdout);
 #endif
-
     Marker_MarkRoots(heap, stack, false);
     Heap_Recycle(heap, false);
 #ifdef DEBUG_PRINT
@@ -204,8 +213,16 @@ void Heap_Collect(Heap *heap, Stack *stack) {
 }
 
 void Heap_CollectOld(Heap *heap, Stack *stack) {
+#ifdef DEBUG_PRINT
+    printf("\nCollect old\n");
+    fflush(stdout);
+#endif
     Marker_MarkRoots(heap, stack, true);
     Heap_Recycle(heap, true);
+#ifdef DEBUG_PRINT
+    printf("End collect old\n");
+    fflush(stdout);
+#endif
 }
 
 void Heap_Recycle(Heap *heap, bool collectingOld) {

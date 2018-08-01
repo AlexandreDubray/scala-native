@@ -7,7 +7,11 @@
 Object *Object_NextLargeObject(Object *objectHeader);
 Object *Object_NextObject(Object *objectHeader);
 Object *Object_GetObject(word_t *address);
+Object *Object_GetYoungObject(word_t *address);
+Object *Object_GetOldObject(word_t *address);
 Object *Object_GetLargeObject(LargeAllocator *largeAllocator, word_t *address);
+Object *Object_GetLargeYoungObject(LargeAllocator *largeAllocator, word_t *address);
+Object *Object_GetLargeOldObject(LargeAllocator *largeAllocator, word_t *address);
 void Object_Mark(Object *objectHeader, bool collectingOld);
 void Object_Unmark(Object *objectHeader);
 size_t Object_ChunkSize(Object *objectHeader);

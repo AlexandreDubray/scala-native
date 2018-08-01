@@ -22,8 +22,8 @@ bool StackOverflowHandler_smallHeapOverflowHeapScan(Heap *heap, Stack *stack);
 
 void Marker_markObject(Heap *heap, Stack *stack, Object *object, bool collectingOld) {
     assert(Object_Size(&object->header) != 0);
-    assert((!collectingOld && !ObjectIsMarked(&object->header)) ||
-           (collectingOld && Object_IsMarked(&object->header)));
+    assert((!collectingOld && !Object_IsMarked(&object->header)) ||
+           (collectingOld && !Object_IsAllocated(&object->header)));
     Object_Mark(object, collectingOld);
     if (!overflow) {
         overflow = Stack_Push(stack, object);
@@ -33,22 +33,8 @@ void Marker_markObject(Heap *heap, Stack *stack, Object *object, bool collecting
 void Marker_mark(Heap *heap, Stack *stack, Object *object, bool collectingOld) {
     if (!collectingOld && !Object_IsMarked(&object->header)) {
         Marker_markObject(heap, stack, object, collectingOld);
-    } else if (collectingOld && Object_IsMarked(&object->header)) {
+    } else if (collectingOld && !Object_IsAllocated(&object->header)) {
         Marker_markObject(heap, stack, object, collectingOld);
-    }
-}
-
-void Marker_checkHeapAndMark(Heap *heap, Stack *stack, Object *fieldObject, bool collectingOld) {
-    if (!collectingOld) {
-        if (heap_isObjectInHeap(heap, fieldObject) &&
-            !Object_IsMarked(&fieldObject->header)) {
-            Marker_markObject(heap, stack, fieldObject, collectingOld);
-        }
-    } else {
-        if (heap_isObjectInHeap(heap, fieldObject) &&
-            Object_IsMarked(&fieldObject->header)) {
-            Marker_markObject(heap, stack, fieldObject, collectingOld);
-        }
     }
 }
 
@@ -56,7 +42,11 @@ void Marker_markConservative(Heap *heap, Stack *stack, word_t *address, bool col
     assert(Heap_IsWordInHeap(heap, address));
     Object *object = NULL;
     if (Heap_IsWordInSmallHeap(heap, address)) {
-        object = Object_GetObject(address);
+        if (!collectingOld) {
+            object = Object_GetYoungObject(address);
+        } else {
+            object = Object_GetOldObject(address);
+        }
         assert(
             object == NULL ||
             Line_ContainsObject(&Block_GetBlockHeader((word_t *)object)
@@ -69,7 +59,11 @@ void Marker_markConservative(Heap *heap, Stack *stack, word_t *address, bool col
         }
 #endif
     } else {
-        object = Object_GetLargeObject(heap->largeAllocator, address);
+        if (!collectingOld) {
+            object = Object_GetLargeYoungObject(heap->largeAllocator, address);
+        } else {
+            object = Object_GetLargeOldObject(heap->largeAllocator, address);
+        }
     }
     
     if (object != NULL) {
@@ -91,7 +85,9 @@ void Marker_Mark(Heap *heap, Stack *stack, bool collectingOld) {
                 word_t *field = object->fields[i];
                 Object *fieldObject = Object_FromMutatorAddress(field);
 
-                Marker_checkHeapAndMark(heap, stack, fieldObject, collectingOld);
+                if (heap_isObjectInHeap(heap, fieldObject)) {
+                    Marker_mark(heap, stack, fieldObject, collectingOld);
+                }
             }
         } else {
             int64_t *ptr_map = object->rtti->refMapStruct;
@@ -99,7 +95,9 @@ void Marker_Mark(Heap *heap, Stack *stack, bool collectingOld) {
             while (ptr_map[i] != LAST_FIELD_OFFSET) {
                 word_t *field = object->fields[ptr_map[i]];
                 Object *fieldObject = Object_FromMutatorAddress(field);
-                Marker_checkHeapAndMark(heap, stack, fieldObject, collectingOld);
+                if (heap_isObjectInHeap(heap, fieldObject)) {
+                    Marker_mark(heap, stack, fieldObject, collectingOld);
+                }
 
                 ++i;
             }
@@ -147,7 +145,6 @@ void Marker_markRemembered(Heap *heap, Stack *stack) {
         assert(Object_Size(&object->header) != 0);
         assert(Object_IsRemembered(&object->header));
 
-        // We re-mark the old object
         Object_SetUnremembered(&object->header);
 
         overflow = Stack_Push(stack, object);
