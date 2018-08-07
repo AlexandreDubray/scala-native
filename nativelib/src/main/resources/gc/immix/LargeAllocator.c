@@ -177,7 +177,7 @@ void LargeAllocator_Sweep(LargeAllocator *allocator, bool collectingOld) {
         } else {
             size_t currentSize = Object_ChunkSize(current);
             Object *next = Object_NextLargeObject(current);
-            while (next != heapEnd && !Object_IsMarked(&next->header)) {
+            while (next != heapEnd && ((!collectingOld && !Object_IsMarked(&next->header)) || (collectingOld && !Object_IsAllocated(&next->header)))) {
                 currentSize += Object_ChunkSize(next);
                 Bitmap_ClearBit(allocator->bitmap, (ubyte_t *)next);
                 next = Object_NextLargeObject(next);
