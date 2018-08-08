@@ -13,6 +13,7 @@ typedef struct {
     uint64_t recycledBlockCount;
     BlockList freeBlocks;
     uint64_t freeBlockCount;
+    uint16_t youngBlockCount;
     BlockHeader *block;
     word_t *cursor;
     word_t *limit;

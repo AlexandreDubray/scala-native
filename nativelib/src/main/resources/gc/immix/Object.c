@@ -7,8 +7,6 @@
 #include "utils/MathUtils.h"
 #include "Marker.h"
 
-#define DEBUG_PRINT
-
 Object *Object_NextLargeObject(Object *object) {
     size_t size = Object_ChunkSize(object);
     assert(size != 0);
