@@ -22,6 +22,8 @@
 #define HEAP_MEM_FD -1
 #define HEAP_MEM_FD_OFFSET 0
 
+bool Heap_shouldGrow(Heap *heap);
+
 void Heap_exitWithOutOfMemory() {
     printf("Out of heap space\n");
     StackTrace_PrintStackTrace();
@@ -29,6 +31,7 @@ void Heap_exitWithOutOfMemory() {
 }
 
 bool Heap_isGrowingPossible(Heap *heap, uint32_t incrementInBlocks) {
+    fflush(stdout);
     return heap->blockCount + incrementInBlocks <= heap->maxBlockCount;
 }
 
@@ -172,19 +175,18 @@ word_t *Heap_AllocLarge(Heap *heap, uint32_t size) {
             assert(Heap_IsWordInHeap(heap, (word_t *)object));
             return (word_t *)object;
         } else {
-            Heap_CollectOld(heap, stack);
+            Heap_CollectOld(heap, &stack);
 
-            object = LargeAllocator_GetBlock(heap->largeAllocator, size);
+            object = LargeAllocator_GetBlock(&largeAllocator, size);
 
             if (object != NULL) {
-                Object_SetObjectType(&object->header, object_large);
-                Object_SetSize(&object->header, size);
-                return Object_ToMutatorAddress(object);
+                assert(Heap_IsWordInHeap(heap, (word_t *)object));
+                return (word_t *)object;
             }
             size_t increment = MathUtils_DivAndRoundUp(size, BLOCK_TOTAL_SIZE);
             uint32_t pow2increment = 1U << MathUtils_Log2Ceil(increment);
 
-            Heap_Grow(heap, size);
+            Heap_Grow(heap, pow2increment);
 
             object = LargeAllocator_GetBlock(&largeAllocator, size);
             assert(object != NULL);
@@ -291,7 +293,7 @@ void Heap_CollectOld(Heap *heap, Stack *stack) {
     uint64_t start_ns, sweep_start_ns, end_ns;
     Stats *stats = heap->stats;
 #ifdef DEBUG_PRINT
-    printf("\nCollect\n");
+    printf("\nCollect Old\n");
     fflush(stdout);
 #endif
     if (stats != NULL) {
@@ -307,7 +309,7 @@ void Heap_CollectOld(Heap *heap, Stack *stack) {
         Stats_RecordCollection(stats, start_ns, sweep_start_ns, end_ns);
     }
 #ifdef DEBUG_PRINT
-    printf("End collect\n");
+    printf("End collect Old\n");
     fflush(stdout);
 #endif
 }
@@ -315,15 +317,16 @@ void Heap_CollectOld(Heap *heap, Stack *stack) {
 bool Heap_shouldGrow(Heap *heap) {
     uint32_t freeBlockCount = blockAllocator.freeBlockCount;
     uint32_t blockCount = heap->blockCount;
-    uint32_t recycledBlockCount = allocator.recycledBlockCount;
-    uint32_t unavailableBlockCount =
-        blockCount - (freeBlockCount + recycledBlockCount);
+    uint32_t youngBlocks = blockAllocator.youngBlockCount;
+    uint32_t oldBlocks = blockAllocator.oldBlockCount;
+    uint32_t unavailableBlockCount = youngBlocks + oldBlocks;
 
 #ifdef DEBUG_PRINT
-    printf("\n\nBlock count: %llu\n", blockCount);
-    printf("Unavailable: %llu\n", unavailableBlockCount);
-    printf("Free: %llu\n", freeBlockCount);
-    printf("Recycled: %llu\n", recycledBlockCount);
+    printf("\n\nBlock count: %u\n", blockCount);
+    printf("Young: %u\n", youngBlocks);
+    printf("Old: %u\n", oldBlocks);
+    printf("Unavailable: %u\n", unavailableBlockCount);
+    printf("Free: %u\n", freeBlockCount);
     fflush(stdout);
 #endif
 
@@ -332,7 +335,6 @@ bool Heap_shouldGrow(Heap *heap) {
 }
 
 void Heap_Recycle(Heap *heap, bool collectingOld) {
-    Allocator_Clear(&allocator);
     LargeAllocator_Clear(&largeAllocator);
     BlockAllocator_Clear(&blockAllocator);
 
@@ -344,7 +346,13 @@ void Heap_Recycle(Heap *heap, bool collectingOld) {
         int size = 1;
         assert(!BlockMeta_IsSuperblockMiddle(current));
         if (BlockMeta_IsSimpleBlock(current)) {
-            Block_Recycle(&allocator, current, currentBlockStart, lineMetas, collectingOld);
+            if ((!collectingOld && !BlockMeta_IsOld(current)) || (collectingOld && BlockMeta_IsOld(current))) {
+                Block_Recycle(&allocator, current, currentBlockStart, lineMetas, collectingOld);
+            } else if (collectingOld) {
+                blockAllocator.youngBlockCount ++;
+            } else if (!collectingOld) {
+                blockAllocator.oldBlockCount ++;
+            }
         } else if (BlockMeta_IsSuperblockStart(current)) {
             size = BlockMeta_SuperblockSize(current);
             LargeAllocator_Sweep(&largeAllocator, current, currentBlockStart, collectingOld);
@@ -375,13 +383,11 @@ void Heap_Recycle(Heap *heap, bool collectingOld) {
             }
         }
     }
+
     BlockAllocator_SweepDone(&blockAllocator);
     if (!Allocator_CanInitCursors(&allocator)) {
-        if (collectingOld) {
-            Heap_CollectOld(heap, stack);
-        } else {
-            Heap_exitWithOutOfMemory();
-        }
+        assert(!collectingOld);
+        Heap_CollectOld(heap, &stack);
     } else {
         Allocator_InitCursors(&allocator);
     }
@@ -394,7 +400,7 @@ void Heap_Grow(Heap *heap, uint32_t incrementInBlocks) {
 
 #ifdef DEBUG_PRINT
     printf("Growing small heap by %zu bytes, to %zu bytes\n",
-           increment * WORD_SIZE,
+           incrementInBlocks * WORD_SIZE,
            heap->heapSize + incrementInBlocks * SPACE_USED_PER_BLOCK);
     fflush(stdout);
 #endif

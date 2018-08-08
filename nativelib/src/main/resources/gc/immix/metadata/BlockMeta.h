@@ -9,12 +9,17 @@
 #include "../Constants.h"
 #include "../Log.h"
 
+#include <stdio.h>
+
+#define OLD_MASK 0x8
+#define FLAG_MASK 0x7
+
 typedef enum {
     block_free = 0x0,
     block_simple = 0x1,
     block_superblock_start = 0x2,
     block_superblock_middle = 0x3,
-    block_marked = 0x5
+    block_marked = 0x5,
 } BlockFlag;
 
 typedef struct {
@@ -32,16 +37,30 @@ typedef struct {
 } BlockMeta;
 
 static inline bool BlockMeta_IsFree(BlockMeta *blockMeta) {
-    return blockMeta->block.simple.flags == block_free;
+    return (blockMeta->block.simple.flags & FLAG_MASK) == block_free;
 }
 static inline bool BlockMeta_IsSimpleBlock(BlockMeta *blockMeta) {
-    return (blockMeta->block.simple.flags & block_simple) != 0;
+    return (blockMeta->block.simple.flags & FLAG_MASK & block_simple) != 0;
 }
 static inline bool BlockMeta_IsSuperblockStart(BlockMeta *blockMeta) {
-    return blockMeta->block.simple.flags == block_superblock_start;
+    return (blockMeta->block.simple.flags & FLAG_MASK) == block_superblock_start;
 }
 static inline bool BlockMeta_IsSuperblockMiddle(BlockMeta *blockMeta) {
-    return blockMeta->block.simple.flags == block_superblock_middle;
+    return (blockMeta->block.simple.flags & FLAG_MASK) == block_superblock_middle;
+}
+static inline bool BlockMeta_IsOld(BlockMeta *blockMeta) {
+    return blockMeta->block.simple.flags & OLD_MASK;
+}
+static inline void BlockMeta_SetOld(BlockMeta *blockMeta) {
+    blockMeta->block.simple.flags |= OLD_MASK;
+}
+
+static inline int BlockMeta_GetAge(BlockMeta *blockMeta) {
+    return blockMeta->block.simple.flags >> 4;
+}
+
+static inline void BlockMeta_IncrementAge(BlockMeta *blockMeta) {
+    blockMeta->block.simple.flags += 0x10;
 }
 
 static inline uint32_t BlockMeta_SuperblockSize(BlockMeta *blockMeta) {
@@ -76,19 +95,19 @@ static inline int8_t BlockMeta_FirstFreeLine(BlockMeta *blockMeta) {
 
 static inline void BlockMeta_SetFlag(BlockMeta *blockMeta,
                                      BlockFlag blockFlag) {
-    blockMeta->block.simple.flags = blockFlag;
+    blockMeta->block.simple.flags = (blockMeta->block.simple.flags & ~FLAG_MASK) | blockFlag;
 }
 
 static inline bool BlockMeta_IsMarked(BlockMeta *blockMeta) {
-    return blockMeta->block.simple.flags == block_marked;
+    return (blockMeta->block.simple.flags & FLAG_MASK) == block_marked;
 }
 
 static inline void BlockMeta_Unmark(BlockMeta *blockMeta) {
-    blockMeta->block.simple.flags = block_simple;
+    blockMeta->block.simple.flags = (blockMeta->block.simple.flags & ~FLAG_MASK) | block_simple;
 }
 
 static inline void BlockMeta_Mark(BlockMeta *blockMeta) {
-    blockMeta->block.simple.flags = block_marked;
+    blockMeta->block.simple.flags = (blockMeta->block.simple.flags & ~FLAG_MASK) | block_marked;
 }
 
 // Block specific

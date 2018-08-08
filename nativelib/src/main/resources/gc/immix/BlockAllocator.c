@@ -178,6 +178,8 @@ void BlockAllocator_Clear(BlockAllocator *blockAllocator) {
         BlockList_Clear(&blockAllocator->freeSuperblocks[i]);
     }
     blockAllocator->freeBlockCount = 0;
+    blockAllocator->youngBlockCount = 0;
+    blockAllocator->oldBlockCount = 0;
     blockAllocator->smallestSuperblock.cursor = NULL;
     blockAllocator->smallestSuperblock.limit = NULL;
     blockAllocator->coalescingSuperblock.first = NULL;

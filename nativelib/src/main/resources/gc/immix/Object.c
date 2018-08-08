@@ -8,8 +8,6 @@
 
 #define LAST_FIELD_OFFSET -1
 
-#define DEBUG_PRINT
-
 word_t *Object_LastWord(Object *object) {
     size_t size = Object_Size(object);
     assert(size < LARGE_BLOCK_SIZE);
@@ -59,12 +57,12 @@ Object *Object_GetUnmarkedObject(Heap *heap, word_t *word, bool collectingOld) {
     }
 
     ObjectMeta *wordMeta = Bytemap_Get(heap->bytemap, word);
-    if (ObjectMeta_IsPlaceholder(wordMeta) || ObjectMeta_IsMarked(wordMeta)) {
+    if (ObjectMeta_IsPlaceholder(wordMeta) || !ObjectMeta_IsAlive(wordMeta, collectingOld)) {
         return NULL;
     } else if (ObjectMeta_IsAlive(wordMeta, collectingOld)) {
         return (Object *)word;
     } else {
-        return Object_getInnerPointer(heap, blockMeta, word, wordMeta);
+        return Object_getInnerPointer(heap, blockMeta, word, wordMeta, collectingOld);
     }
 }
 

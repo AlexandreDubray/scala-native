@@ -13,8 +13,6 @@ typedef struct {
     Bytemap *bytemap;
     BlockAllocator *blockAllocator;
     word_t *heapStart;
-    BlockList recycledBlocks;
-    uint32_t recycledBlockCount;
     BlockMeta *block;
     word_t *blockStart;
     word_t *cursor;

@@ -17,12 +17,9 @@ void Allocator_Init(Allocator *allocator, BlockAllocator *blockAllocator,
     allocator->bytemap = bytemap;
     allocator->heapStart = heapStart;
 
-    BlockList_Init(&allocator->recycledBlocks, blockMetaStart);
-
-    allocator->recycledBlockCount = 0;
-
     // For remembering old object that might contains inter-generational
     // pointers
+    allocator->rememberedObjects = malloc(sizeof(Stack));
     Stack_Init(allocator->rememberedObjects, INITIAL_STACK_SIZE);
 
     Allocator_InitCursors(allocator);
@@ -37,9 +34,7 @@ void Allocator_Init(Allocator *allocator, BlockAllocator *blockAllocator,
  * otherwise.
  */
 bool Allocator_CanInitCursors(Allocator *allocator) {
-    uint64_t freeBlockCount = allocator->blockAllocator->freeBlockCount;
-    return freeBlockCount >= 2 ||
-           (freeBlockCount == 1 && allocator->recycledBlockCount > 0);
+    return allocator->blockAllocator->freeBlockCount >= 3;
 }
 
 void Allocator_InitCursors(Allocator *allocator) {
@@ -60,11 +55,6 @@ void Allocator_InitCursors(Allocator *allocator) {
     allocator->largeLimit = Block_GetBlockEnd(largeBlockStart);
 }
 
-void Allocator_Clear(Allocator *allocator) {
-    BlockList_Clear(&allocator->recycledBlocks);
-    allocator->recycledBlockCount = 0;
-}
-
 /**
  * Overflow allocation uses only free blocks, it is used when the bump limit of
  * the fast allocator is too small to fit
@@ -80,6 +70,7 @@ word_t *Allocator_overflowAllocation(Allocator *allocator, size_t size) {
         if (block == NULL) {
             return NULL;
         }
+        allocator->blockAllocator->youngBlockCount++;
         allocator->largeBlock = block;
         word_t *blockStart = BlockMeta_GetBlockStart(
             allocator->blockMetaStart, allocator->heapStart, block);
@@ -110,6 +101,10 @@ INLINE word_t *Allocator_Alloc(Allocator *allocator, size_t size) {
         if (size > LINE_SIZE) {
             return Allocator_overflowAllocation(allocator, size);
         } else {
+            // If maximal number of free block reached, need to collect the young generation
+            if (!(allocator->blockAllocator->youngBlockCount < MAX_YOUNG_BLOCKS)) {
+                return NULL;
+            }
             // Otherwise try to get a new line.
             if (Allocator_getNextLine(allocator)) {
                 return Allocator_Alloc(allocator, size);
@@ -155,36 +150,16 @@ bool Allocator_getNextLine(Allocator *allocator) {
  * free line of the new block.
  */
 bool Allocator_newBlock(Allocator *allocator) {
-    BlockMeta *block = BlockList_Poll(&allocator->recycledBlocks);
-    word_t *blockStart;
-
-    if (block != NULL) {
-        blockStart = BlockMeta_GetBlockStart(allocator->blockMetaStart,
-                                             allocator->heapStart, block);
-
-        int lineIndex = BlockMeta_FirstFreeLine(block);
-        assert(lineIndex < LINE_COUNT);
-        word_t *line = Block_GetLineAddress(blockStart, lineIndex);
-
-        allocator->cursor = line;
-        FreeLineMeta *lineMeta = (FreeLineMeta *)line;
-        BlockMeta_SetFirstFreeLine(block, lineMeta->next);
-        uint16_t size = lineMeta->size;
-        assert(size > 0);
-        allocator->limit = line + (size * WORDS_IN_LINE);
-        assert(allocator->limit <= Block_GetBlockEnd(blockStart));
-    } else {
-        block = BlockAllocator_GetFreeBlock(allocator->blockAllocator);
-        if (block == NULL) {
-            return false;
-        }
-        blockStart = BlockMeta_GetBlockStart(allocator->blockMetaStart,
-                                             allocator->heapStart, block);
-
-        allocator->cursor = blockStart;
-        allocator->limit = Block_GetBlockEnd(blockStart);
-        BlockMeta_SetFirstFreeLine(block, LAST_HOLE);
+    BlockMeta * block = BlockAllocator_GetFreeBlock(allocator->blockAllocator);
+    if (block == NULL) {
+        return false;
     }
+    word_t * blockStart = BlockMeta_GetBlockStart(allocator->blockMetaStart,
+                                         allocator->heapStart, block);
+
+    allocator->cursor = blockStart;
+    allocator->limit = Block_GetBlockEnd(blockStart);
+    BlockMeta_SetFirstFreeLine(block, LAST_HOLE);
 
     allocator->block = block;
     allocator->blockStart = blockStart;

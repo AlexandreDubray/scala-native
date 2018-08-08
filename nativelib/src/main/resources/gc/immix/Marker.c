@@ -17,19 +17,8 @@ extern word_t **__stack_bottom;
 void Marker_markObject(Heap *heap, Stack *stack, Bytemap *bytemap,
                        Object *object, ObjectMeta *objectMeta, bool collectingOld) {
     assert(Object_Size(object) != 0);
-    Object_Mark(heap, object, objectMeta);
+    Object_Mark(heap, object, objectMeta, collectingOld);
     Stack_Push(stack, object);
-}
-
-bool Marker_mark(Heap *heap, Stack *stack, Bytemap *bytemap, Object *object, ObjectMeta *objectMeta, bool collectingOld) {
-    if (!collectingOld && ObjectMeta_IsAllocated(objectMeta)) {
-        Marker_markObject(heap, stack, bytemap, object, objectMeta, collectingOld);
-        return true;
-    } else if (collectingOld && ObjectMeta_IsMarked(objectMeta)) {
-        Marker_markObject(heap, stack, bytemap, object, objectMeta, collectingOld);
-        return true;
-    }
-    return false;
 }
 
 void Marker_markConservative(Heap *heap, Stack *stack, word_t *address, bool collectingOld) {
@@ -39,16 +28,16 @@ void Marker_markConservative(Heap *heap, Stack *stack, word_t *address, bool col
     if (object != NULL) {
         ObjectMeta *objectMeta = Bytemap_Get(bytemap, (word_t *)object);
         if (ObjectMeta_IsAlive(objectMeta, collectingOld)) {
-            Marker_markObject(heap, stask, bytemap, objectMeta, collectingOld);
+            Marker_markObject(heap, stack, bytemap,object, objectMeta, collectingOld);
         }
     }
 }
 
-void Marker_Mark(Heap *heap, Stack *stack, collectingOld) {
+void Marker_Mark(Heap *heap, Stack *stack, bool collectingOld) {
     Bytemap *bytemap = heap->bytemap;
     while (!Stack_IsEmpty(stack)) {
         Object *object = Stack_Pop(stack);
-        ObjectMeta *objectMeta = Bytemap_Get(Heap_BytemapForWord(heap, (word_t *)object), (word_t *)object);
+        ObjectMeta *objectMeta = Bytemap_Get(bytemap, (word_t *)object);
         word_t *bStart = Block_GetBlockStartForWord((word_t *)object);
         BlockMeta *bMeta = Block_GetBlockMeta(bStart, heap->heapStart, (word_t *)object);
 
@@ -63,7 +52,7 @@ void Marker_Mark(Heap *heap, Stack *stack, collectingOld) {
                     if (Heap_IsWordInHeap(heap, field)) {
                         ObjectMeta *fieldMeta = Bytemap_Get(bytemap, field);
                         if (ObjectMeta_IsAlive(fieldMeta, collectingOld)) {
-                            Marker_markObject(heap, stask, bytemap, fieldMeta, collectingOld);
+                            Marker_markObject(heap, stack, bytemap, (Object *) field, fieldMeta, collectingOld);
                         }
                     }
                 }
@@ -78,7 +67,7 @@ void Marker_Mark(Heap *heap, Stack *stack, collectingOld) {
                 if (Heap_IsWordInHeap(heap, field)) {
                     ObjectMeta *fieldMeta = Bytemap_Get(bytemap, field);
                     if (ObjectMeta_IsAlive(fieldMeta, collectingOld)) {
-                        Marker_markObject(heap, stask, bytemap, fieldMeta, collectingOld);
+                        Marker_markObject(heap, stack, bytemap, (Object *)field, fieldMeta, collectingOld);
                     }
                 }
                 ++i;
@@ -116,7 +105,7 @@ void Marker_markModules(Heap *heap, Stack *stack, bool collectingOld) {
             // is within heap
             ObjectMeta *objectMeta = Bytemap_Get(bytemap, (word_t *)object);
             if (ObjectMeta_IsAlive(objectMeta, collectingOld)) {
-                Marker_markObject(heap, stask, bytemap, objectMeta, collectingOld);
+                Marker_markObject(heap, stack, bytemap, object, objectMeta, collectingOld);
             }
         }
     }
@@ -126,13 +115,12 @@ void Marker_markRemembered(Heap *heap, Stack *stack) {
     Stack *roots = allocator.rememberedObjects;
     while (!Stack_IsEmpty(roots)) {
         Object *object = (Object *)Stack_Pop(roots);
-        Bytemap *bytemap = Heap_BytemapForWord(heap, (word_t *)object);
+        Bytemap *bytemap = heap->bytemap;
         if (bytemap != NULL) {
             ObjectMeta *objectMeta = Bytemap_Get(bytemap, (word_t *)object);
-            if (ObjectMeta_IsMarked(objectMeta)) {
-                ObjectMeta_SetUnremembered(objectMeta);
-                Stack_Push(stack, object);
-            }
+            assert(ObjectMeta_IsMarked(objectMeta) && ObjectMeta_IsRemembered(objectMeta));
+            ObjectMeta_SetUnremembered(objectMeta);
+            Stack_Push(stack, object);
         }
     }
 }

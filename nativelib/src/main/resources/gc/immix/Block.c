@@ -6,6 +6,7 @@
 #include "Log.h"
 #include "Allocator.h"
 #include "Marker.h"
+#include "State.h"
 
 INLINE void Block_recycleUnmarkedBlock(Allocator *allocator,
                                        BlockMeta *blockMeta,
@@ -22,9 +23,6 @@ INLINE void Block_recycleUnmarkedBlock(Allocator *allocator,
 void Block_Recycle(Allocator *allocator, BlockMeta *blockMeta,
                    word_t *blockStart, LineMeta *lineMetas, bool collectingOld) {
 
-    if ((!collectingOld && BlockMeta_IsOld(blockMeta)) || (collectingOld && !BlockMeta_IsOld(blockMeta))) {
-        return;
-    }
     // If the block is not marked, it means that it's completely free
     if (!BlockMeta_IsMarked(blockMeta)) {
         Block_recycleUnmarkedBlock(allocator, blockMeta, blockStart);
@@ -33,12 +31,16 @@ void Block_Recycle(Allocator *allocator, BlockMeta *blockMeta,
         assert(BlockMeta_IsMarked(blockMeta));
         BlockMeta_Unmark(blockMeta);
         if (!collectingOld) {
+            assert(!BlockMeta_IsOld(blockMeta));
             BlockMeta_IncrementAge(blockMeta);
             if (BlockMeta_GetAge(blockMeta) == MAX_AGE_YOUNG_BLOCK) {
-                BlockMeta_SetFlag(blockMeta, block_old);
+                BlockMeta_SetOld(blockMeta);
+                blockAllocator.oldBlockCount ++;
             } else {
-                BlockMeta_SetFlag(blockMeta, block_unavailable);
+                blockAllocator.youngBlockCount ++;
             }
+        }  else {
+            blockAllocator.oldBlockCount ++;
         }
 
         Bytemap *bytemap = allocator->bytemap;
@@ -65,45 +67,11 @@ void Block_Recycle(Allocator *allocator, BlockMeta *blockMeta,
                 }
 
                 // next line
-                lineIndex++;
-                lineMeta++;
-                lineStart += WORDS_IN_LINE;
-                bytemapCursor = Bytemap_NextLine(bytemapCursor);
-            } else {
-                // If the line is not marked, we need to merge all continuous
-                // unmarked lines.
-
-                // If it's the first free line, update the block header to point
-                // to it.
-                if (lastRecyclable == NULL) {
-                    BlockMeta_SetFirstFreeLine(blockMeta, lineIndex);
-                } else {
-                    // Update the last recyclable line to point to the current
-                    // one
-                    lastRecyclable->next = lineIndex;
-                }
-                ObjectMeta_ClearLineAt(bytemapCursor);
-                lastRecyclable = (FreeLineMeta *)lineStart;
-
-                // next line
-                lineIndex++;
-                lineMeta++;
-                lineStart += WORDS_IN_LINE;
-                bytemapCursor = Bytemap_NextLine(bytemapCursor);
-
-                uint8_t size = 1;
-                while (lineIndex < LINE_COUNT && !Line_IsMarked(lineMeta)) {
-                    ObjectMeta_ClearLineAt(bytemapCursor);
-                    size++;
-
-                    // next line
-                    lineIndex++;
-                    lineMeta++;
-                    lineStart += WORDS_IN_LINE;
-                    bytemapCursor = Bytemap_NextLine(bytemapCursor);
-                }
-                lastRecyclable->size = size;
             }
+            lineIndex++;
+            lineMeta++;
+            lineStart += WORDS_IN_LINE;
+            bytemapCursor = Bytemap_NextLine(bytemapCursor);
         }
     }
 }

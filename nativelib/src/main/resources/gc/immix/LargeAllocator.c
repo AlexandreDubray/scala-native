@@ -143,7 +143,6 @@ void LargeAllocator_Clear(LargeAllocator *allocator) {
     }
 }
 
-<<<<<<< HEAD
 void LargeAllocator_Sweep(LargeAllocator *allocator, BlockMeta *blockMeta,
                           word_t *blockStart, bool collectingOld) {
     // Objects that are larger than a block
@@ -158,7 +157,7 @@ void LargeAllocator_Sweep(LargeAllocator *allocator, BlockMeta *blockMeta,
     ObjectMeta *firstObject = Bytemap_Get(allocator->bytemap, blockStart);
     assert(!ObjectMeta_IsFree(firstObject));
     BlockMeta *lastBlock = blockMeta + superblockSize - 1;
-    if (superblockSize > 1 && !ObjectMeta_IsAlive(firstObject, collectingOld)) {
+    if (superblockSize > 1 && !ObjectMeta_IsAliveSweep(firstObject, collectingOld)) { 
         // release free superblock starting from the first object
         BlockAllocator_AddFreeBlocks(allocator->blockAllocator, blockMeta,
                                      superblockSize - 1);
@@ -171,10 +170,14 @@ void LargeAllocator_Sweep(LargeAllocator *allocator, BlockMeta *blockMeta,
     word_t *chunkStart = NULL;
 
     // the tail end of the first object
-    if (!ObjectMeta_IsAlive(firstObject, collectingOld)) {
+    if (!ObjectMeta_IsAliveSweep(firstObject, collectingOld)) {
         chunkStart = lastBlockStart;
     }
-    ObjectMeta_Sweep(firstObject);
+    if (!collectingOld) {
+        ObjectMeta_Sweep(firstObject);
+    } else {
+        ObjectMeta_SweepOld(firstObject);
+    }
 
     word_t *current = lastBlockStart + (MIN_BLOCK_SIZE / WORD_SIZE);
     ObjectMeta *currentMeta = Bytemap_Get(allocator->bytemap, current);
@@ -182,18 +185,23 @@ void LargeAllocator_Sweep(LargeAllocator *allocator, BlockMeta *blockMeta,
         if (chunkStart == NULL) {
             // if (ObjectMeta_IsAllocated(currentMeta)||
             // ObjectMeta_IsPlaceholder(currentMeta)) {
-            if (*currentMeta & 0x3) {
+            if ((!collectingOld && (*currentMeta & 0x3)) || (collectingOld && (*currentMeta & 0x5))) {
                 chunkStart = current;
             }
         } else {
-            if (ObjectMeta_IsAlive(currentMeta, collectingOld)) {
+            if (ObjectMeta_IsAliveSweep(currentMeta, collectingOld)) {
                 size_t currentSize = (current - chunkStart) * WORD_SIZE;
                 LargeAllocator_AddChunk(allocator, (Chunk *)chunkStart,
                                         currentSize);
                 chunkStart = NULL;
             }
         }
-        ObjectMeta_Sweep(currentMeta);
+
+        if (!collectingOld) {
+            ObjectMeta_Sweep(currentMeta);
+        } else {
+            ObjectMeta_SweepOld(currentMeta);
+        }
 
         current += MIN_BLOCK_SIZE / WORD_SIZE;
         currentMeta += MIN_BLOCK_SIZE / ALLOCATION_ALIGNMENT;

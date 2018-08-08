@@ -54,10 +54,10 @@ INLINE void *scalanative_alloc_atomic(void *info, size_t size) {
 
 INLINE void scalanative_collect() { Heap_Collect(&heap, &stack); }
 
-void scalanative_write_barrier(void *object) {
-    Object *obj = Object_FromMutatorAddress(object);
-    if (Object_IsMarked(&obj->header) && !Object_IsRemembered(&obj->header)) {
-        Object_SetRemembered(&obj->header);
-        Stack_Push(heap->allocator->rememberedObjects, obj);
+INLINE void scalanative_write_barrier(void *object) {
+    ObjectMeta *objectMeta = Bytemap_Get(heap.bytemap, (word_t *)object);
+    if (ObjectMeta_IsMarked(objectMeta) && !ObjectMeta_IsRemembered(objectMeta)) {
+        ObjectMeta_SetRemembered(objectMeta);
+        Stack_Push(allocator.rememberedObjects, object);
     }
 }
