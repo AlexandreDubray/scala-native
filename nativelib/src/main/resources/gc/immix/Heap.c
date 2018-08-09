@@ -249,7 +249,7 @@ void Heap_Recycle(Heap *heap, bool collectingOld) {
 
     LargeAllocator_Sweep(heap->largeAllocator, collectingOld);
 
-    if (Allocator_ShouldGrow(heap->allocator)) {
+    if (collectingOld && Allocator_ShouldGrow(heap->allocator)) {
         double growth;
         if (heap->smallHeapSize < EARLY_GROWTH_THRESHOLD) {
             growth = EARLY_GROWTH_RATE;
@@ -260,7 +260,11 @@ void Heap_Recycle(Heap *heap, bool collectingOld) {
         size_t increment = blocks * WORDS_IN_BLOCK;
         Heap_Grow(heap, increment);
     }
-    Allocator_InitCursors(heap->allocator);
+    if (!Allocator_CanInitCursors(heap->allocator)) {
+        Heap_CollectOld(heap, stack);
+    } else {
+        Allocator_InitCursors(heap->allocator);
+    }
 }
 
 void Heap_exitWithOutOfMemory() {
