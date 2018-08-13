@@ -258,9 +258,6 @@ BlockHeader *Allocator_getNextBlock(Allocator *allocator) {
         block = BlockList_RemoveFirstBlock(&allocator->recycledBlocks);
     } else if (!BlockList_IsEmpty(&allocator->freeBlocks)) {
         block = BlockList_RemoveFirstBlock(&allocator->freeBlocks);
-    } else if (BlockList_IsEmpty(&allocator->freeBlocks)) {
-        Heap_Grow(heap, BLOCK_TOTAL_SIZE);
-        block = BlockList_RemoveFirstBlock(&allocator->freeBlocks);
     }
 
     return block;
