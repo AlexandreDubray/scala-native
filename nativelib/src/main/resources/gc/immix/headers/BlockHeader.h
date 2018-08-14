@@ -7,6 +7,8 @@
 #include "../Constants.h"
 #include "../Log.h"
 
+#define FLAG_MASK 0x3
+
 typedef enum {
     block_free = 0x0,
     block_recyclable = 0x1,
@@ -25,22 +27,34 @@ typedef struct {
 } BlockHeader;
 
 static inline bool Block_IsRecyclable(BlockHeader *blockHeader) {
-    return blockHeader->header.flags == block_recyclable;
+    return (blockHeader->header.flags & FLAG_MASK) == block_recyclable;
 }
 static inline bool Block_IsUnavailable(BlockHeader *blockHeader) {
-    return blockHeader->header.flags == block_unavailable;
+    return (blockHeader->header.flags & FLAG_MASK) == block_unavailable;
 }
 static inline bool Block_IsFree(BlockHeader *blockHeader) {
-    return blockHeader->header.flags == block_free;
+    return (blockHeader->header.flags & FLAG_MASK) == block_free;
 }
 
 static inline bool Block_IsOld(BlockHeader *blockHeader) {
-    return blockHeader->header.flags == block_old;
+    return (blockHeader->header.flags & FLAG_MASK) == block_old;
 }
 
 static inline void Block_SetFlag(BlockHeader *blockHeader,
                                  BlockFlag blockFlag) {
-    blockHeader->header.flags = blockFlag;
+    blockHeader->header.flags = (blockHeader->header.flags & ~FLAG_MASK) | blockFlag;
+}
+
+static inline int Block_GetAge(BlockHeader *blockHeader) {
+    return blockHeader->header.flags >> 2;
+}
+
+static inline void Block_IncrementAge(BlockHeader *blockHeader) {
+    blockHeader->header.flags += 0x8;
+}
+
+static inline void Block_ResetAge(BlockHeader *blockHeader) {
+    blockHeader->header.flags &= FLAG_MASK;
 }
 
 static inline bool Block_IsMarked(BlockHeader *blockHeader) {

@@ -28,8 +28,17 @@ INLINE void Block_recycleMarkedLine(BlockHeader *blockHeader,
             Block_GetLineAddress(blockHeader, lineIndex) + WORDS_IN_LINE;
         while (object != NULL && (word_t *)object < lineEnd) {
             ObjectHeader *objectHeader = &object->header;
-            if (!Object_IsMarked(objectHeader)) {
-                Object_SetFree(objectHeader);
+            if (Block_IsOld(blockHeader)) {
+                if (!Object_IsMarked(objectHeader)) {
+                    Object_SetFree(objectHeader);
+                }
+            } else {
+                // The block is not old yet. It did not survive enough collection
+                if (Object_IsMarked(objectHeader)) {
+                    Object_SetAllocated(objectHeader);
+                } else {
+                    Object_SetFree(objectHeader);
+                }
             }
             object = Object_NextObject(object);
         }
@@ -73,7 +82,10 @@ void Block_Recycle(Allocator *allocator, BlockHeader *blockHeader) {
             // and mark it as old
             assert(Block_IsMarked(blockHeader));
             Block_Unmark(blockHeader);
-            Block_SetFlag(blockHeader, block_old);
+            Block_IncrementAge(blockHeader);
+            if (Block_GetAge(blockHeader) == MAX_AGE_YOUNG_BLOCK) {
+                Block_SetFlag(blockHeader, block_old);
+            }
 
             int16_t lineIndex = 0;
             int lastRecyclable = NO_RECYCLABLE_LINE;
@@ -126,6 +138,7 @@ void Block_RecycleOld(Allocator *allocator, BlockHeader *blockHeader) {
     // Here we only consider old block. Since we always collect young generation
     // before old, the block can only be unused or old
     if (Block_IsOld(blockHeader) && Block_IsMarked(blockHeader)) {
+        assert(Block_GetAge(blockHeader) == MAX_AGE_YOUNG_BLOCK);
         int16_t lineIndex = 0;
         int lastRecyclable = NO_RECYCLABLE_LINE;
         Block_Unmark(blockHeader);
