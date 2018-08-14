@@ -21,7 +21,8 @@ typedef struct {
     word_t *largeBlockStart;
     word_t *largeCursor;
     word_t *largeLimit;
-    Stack *rememberedObjects;
+    Stack rememberedObjects;
+    Stack rememberedYoungObjects;
 } Allocator;
 
 void Allocator_Init(Allocator *allocator, BlockAllocator *blockAllocator,

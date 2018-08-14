@@ -6,7 +6,6 @@
 #include <stddef.h>
 #include <stdbool.h>
 
-
 typedef enum {
     om_free = 0x0,
     om_placeholder = 0x1,
@@ -33,7 +32,7 @@ static inline bool ObjectMeta_IsMarked(ObjectMeta *metadata) {
 }
 
 static inline bool ObjectMeta_IsRemembered(ObjectMeta *metadata) {
-    return *metadata & REMEMBERED_MASK;
+    return (*metadata & REMEMBERED_MASK) != 0;
 }
 
 static inline bool ObjectMeta_IsAlive(ObjectMeta *metadata, bool isOld) {
@@ -142,7 +141,7 @@ static inline void ObjectMeta_Sweep(ObjectMeta *cursor) {
     //    } else {
     //        ObjectMeta_SetFree(cursor)
     //    }
-    *cursor = *cursor & 0x04;
+    *cursor = (*cursor & 0x04) >> 1;
 }
 
 static inline void ObjectMeta_SweepOld(ObjectMeta *cursor) {
@@ -155,5 +154,14 @@ static inline void ObjectMeta_SweepOld(ObjectMeta *cursor) {
     // Since this is a old object, we also have to make sure it is still
     // remembered if it was
     *cursor = (*cursor & REMEMBERED_MASK) | ((*cursor & 0x2) << 1);
+}
+
+static inline void ObjectMeta_SweepNewOld(ObjectMeta *cursor) {
+    // if (ObjectMeta_IsMarked(cursor)) {
+    //     // do nothing
+    // } else {
+    //     ObjectMeta_SetFree(cursor);
+    // }
+    *cursor &= 0x4;
 }
 #endif // IMMIX_OBJECTMETA_H

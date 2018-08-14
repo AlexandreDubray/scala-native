@@ -13,6 +13,7 @@
 #include "Memory.h"
 #include <memory.h>
 #include <time.h>
+#include "datastructures/Stack.h"
 
 // Allow read and write
 #define HEAP_MEM_PROT (PROT_READ | PROT_WRITE)
@@ -173,12 +174,13 @@ word_t *Heap_AllocLarge(Heap *heap, uint32_t size) {
         object = LargeAllocator_GetBlock(&largeAllocator, size);
         if (object != NULL) {
             assert(Heap_IsWordInHeap(heap, (word_t *)object));
+            Stack_Clear(&allocator.rememberedYoungObjects);
             return (word_t *)object;
         } else {
             Heap_CollectOld(heap, &stack);
 
             object = LargeAllocator_GetBlock(&largeAllocator, size);
-
+            Stack_Clear(&allocator.rememberedYoungObjects);
             if (object != NULL) {
                 assert(Heap_IsWordInHeap(heap, (word_t *)object));
                 return (word_t *)object;
@@ -223,6 +225,7 @@ NOINLINE word_t *Heap_allocSmallSlow(Heap *heap, uint32_t size) {
 done:
     assert(Heap_IsWordInHeap(heap, (word_t *)object));
     assert(object != NULL);
+    Stack_Clear(&allocator.rememberedYoungObjects);
     ObjectMeta *objectMeta = Bytemap_Get(allocator.bytemap, (word_t *)object);
     ObjectMeta_SetAllocated(objectMeta);
     return (word_t *)object;
@@ -346,16 +349,21 @@ void Heap_Recycle(Heap *heap, bool collectingOld) {
         int size = 1;
         assert(!BlockMeta_IsSuperblockMiddle(current));
         if (BlockMeta_IsSimpleBlock(current)) {
+            assert(!BlockMeta_IsFree(current));
             if ((!collectingOld && !BlockMeta_IsOld(current)) || (collectingOld && BlockMeta_IsOld(current))) {
                 Block_Recycle(&allocator, current, currentBlockStart, lineMetas, collectingOld);
             } else if (collectingOld) {
+                assert(!BlockMeta_IsOld(current));
                 blockAllocator.youngBlockCount ++;
             } else if (!collectingOld) {
+                assert(BlockMeta_IsOld(current));
                 blockAllocator.oldBlockCount ++;
             }
         } else if (BlockMeta_IsSuperblockStart(current)) {
             size = BlockMeta_SuperblockSize(current);
-            LargeAllocator_Sweep(&largeAllocator, current, currentBlockStart, collectingOld);
+            if ((!collectingOld && !BlockMeta_IsOld(current)) || (collectingOld && BlockMeta_IsOld(current))) {
+                LargeAllocator_Sweep(&largeAllocator, current, currentBlockStart, collectingOld);
+            }
         } else {
             assert(BlockMeta_IsFree(current));
             BlockAllocator_AddFreeBlocks(&blockAllocator, current, 1);
@@ -402,6 +410,7 @@ void Heap_Grow(Heap *heap, uint32_t incrementInBlocks) {
     printf("Growing small heap by %zu bytes, to %zu bytes\n",
            incrementInBlocks * WORD_SIZE,
            heap->heapSize + incrementInBlocks * SPACE_USED_PER_BLOCK);
+    printf("Heap max size is %zu\n", heap->maxHeapSize);
     fflush(stdout);
 #endif
 

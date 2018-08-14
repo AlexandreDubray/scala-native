@@ -11,7 +11,6 @@
 
 #include <stdio.h>
 
-#define OLD_MASK 0x8
 #define FLAG_MASK 0x7
 
 typedef enum {
@@ -48,19 +47,22 @@ static inline bool BlockMeta_IsSuperblockStart(BlockMeta *blockMeta) {
 static inline bool BlockMeta_IsSuperblockMiddle(BlockMeta *blockMeta) {
     return (blockMeta->block.simple.flags & FLAG_MASK) == block_superblock_middle;
 }
-static inline bool BlockMeta_IsOld(BlockMeta *blockMeta) {
-    return blockMeta->block.simple.flags & OLD_MASK;
-}
-static inline void BlockMeta_SetOld(BlockMeta *blockMeta) {
-    blockMeta->block.simple.flags |= OLD_MASK;
-}
 
 static inline int BlockMeta_GetAge(BlockMeta *blockMeta) {
-    return blockMeta->block.simple.flags >> 4;
+    return blockMeta->block.simple.flags >> 3;
+}
+
+static inline bool BlockMeta_IsOld(BlockMeta *blockMeta) {
+    return BlockMeta_GetAge(blockMeta) == MAX_AGE_YOUNG_BLOCK;
 }
 
 static inline void BlockMeta_IncrementAge(BlockMeta *blockMeta) {
-    blockMeta->block.simple.flags += 0x10;
+    blockMeta->block.simple.flags += 0x8;
+}
+
+static inline void BlockMeta_ResetAge(BlockMeta *blockMeta) {
+    blockMeta->block.simple.flags &= FLAG_MASK;
+    assert(BlockMeta_GetAge(blockMeta) == 0);
 }
 
 static inline uint32_t BlockMeta_SuperblockSize(BlockMeta *blockMeta) {

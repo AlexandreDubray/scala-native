@@ -37,9 +37,12 @@ void Marker_Mark(Heap *heap, Stack *stack, bool collectingOld) {
     Bytemap *bytemap = heap->bytemap;
     while (!Stack_IsEmpty(stack)) {
         Object *object = Stack_Pop(stack);
-        ObjectMeta *objectMeta = Bytemap_Get(bytemap, (word_t *)object);
-        word_t *bStart = Block_GetBlockStartForWord((word_t *)object);
-        BlockMeta *bMeta = Block_GetBlockMeta(bStart, heap->heapStart, (word_t *)object);
+        ObjectMeta *objectMeta = Bytemap_Get(heap->bytemap, (word_t *)object);
+        BlockMeta *blockMeta = Block_GetBlockMeta(heap->blockMetaStart, heap->heapStart, (word_t *)object);
+        bool willBeOld = BlockMeta_IsOld(blockMeta) || BlockMeta_GetAge(blockMeta) == MAX_AGE_YOUNG_BLOCK - 1;
+
+        bool hasPointerToYoung = false;
+        bool hasPointerToOld = false;
 
         if (Object_IsArray(object)) {
             if (object->rtti->rt.id == __object_array_id) {
@@ -51,6 +54,13 @@ void Marker_Mark(Heap *heap, Stack *stack, bool collectingOld) {
                     word_t *field = fields[i];
                     if (Heap_IsWordInHeap(heap, field)) {
                         ObjectMeta *fieldMeta = Bytemap_Get(bytemap, field);
+                        BlockMeta *fieldBlockMeta = Block_GetBlockMeta(heap->blockMetaStart, heap->heapStart, field);
+
+                        if (BlockMeta_IsOld(blockMeta) || BlockMeta_GetAge(blockMeta) == MAX_AGE_YOUNG_BLOCK - 1) {
+                            hasPointerToOld = true;
+                        } else {
+                            hasPointerToYoung = true;
+                        }
                         if (ObjectMeta_IsAlive(fieldMeta, collectingOld)) {
                             Marker_markObject(heap, stack, bytemap, (Object *) field, fieldMeta, collectingOld);
                         }
@@ -66,12 +76,26 @@ void Marker_Mark(Heap *heap, Stack *stack, bool collectingOld) {
                 word_t *field = object->fields[ptr_map[i]];
                 if (Heap_IsWordInHeap(heap, field)) {
                     ObjectMeta *fieldMeta = Bytemap_Get(bytemap, field);
+                    BlockMeta *fieldBlockMeta = Block_GetBlockMeta(heap->blockMetaStart, heap->heapStart, field);
+                    if (BlockMeta_IsOld(blockMeta) || BlockMeta_GetAge(blockMeta) == MAX_AGE_YOUNG_BLOCK - 1) {
+                        hasPointerToOld = true;
+                    } else {
+                        hasPointerToYoung = true;
+                    }
                     if (ObjectMeta_IsAlive(fieldMeta, collectingOld)) {
                         Marker_markObject(heap, stack, bytemap, (Object *)field, fieldMeta, collectingOld);
                     }
                 }
                 ++i;
             }
+        }
+
+
+        if (willBeOld && hasPointerToYoung) {
+            ObjectMeta_SetRemembered(objectMeta);
+            Stack_Push(&allocator.rememberedObjects, object);
+        } else if (!willBeOld && hasPointerToOld) {
+            Stack_Push(&allocator.rememberedYoungObjects, object);
         }
     }
 }
@@ -112,25 +136,30 @@ void Marker_markModules(Heap *heap, Stack *stack, bool collectingOld) {
 }
 
 void Marker_markRemembered(Heap *heap, Stack *stack) {
-    Stack *roots = allocator.rememberedObjects;
+    Stack *roots = &allocator.rememberedObjects;
     while (!Stack_IsEmpty(roots)) {
         Object *object = (Object *)Stack_Pop(roots);
-        Bytemap *bytemap = heap->bytemap;
-        if (bytemap != NULL) {
-            ObjectMeta *objectMeta = Bytemap_Get(bytemap, (word_t *)object);
-            assert(ObjectMeta_IsMarked(objectMeta) && ObjectMeta_IsRemembered(objectMeta));
-            ObjectMeta_SetUnremembered(objectMeta);
-            Stack_Push(stack, object);
-        }
+        ObjectMeta *objectMeta = Bytemap_Get(heap->bytemap, (word_t *)object);
+        assert(ObjectMeta_IsMarked(objectMeta) && ObjectMeta_IsRemembered(objectMeta));
+        ObjectMeta_SetUnremembered(objectMeta);
+        Stack_Push(stack, object);
+    }
+}
+
+void Marker_markYoungRemembered(Heap *heap,Stack *stack) {
+    Stack *roots = &allocator.rememberedYoungObjects;
+    while(!Stack_IsEmpty(roots)) {
+        Object *object = (Object *)Stack_Pop(roots);
+        Stack_Push(stack, object);
     }
 }
 
 void Marker_MarkRoots(Heap *heap, Stack *stack, bool collectingOld) {
 
-    // We need to trace inter-generational pointer only when we
-    // collect the young generation.
     if (!collectingOld) {
         Marker_markRemembered(heap, stack);
+    } else {
+        Marker_markYoungRemembered(heap, stack);
     }
 
     Marker_markProgramStack(heap, stack, collectingOld);

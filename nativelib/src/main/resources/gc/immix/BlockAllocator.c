@@ -33,6 +33,7 @@ BlockAllocator_pollSuperblock(BlockAllocator *blockAllocator, int first) {
             BlockList_Poll(&blockAllocator->freeSuperblocks[i]);
         if (superblock != NULL) {
             assert(BlockMeta_SuperblockSize(superblock) > 0);
+            BlockMeta_ResetAge(superblock);
             return superblock;
         } else {
             blockAllocator->minNonEmptyIndex = i + 1;
@@ -52,6 +53,7 @@ BlockAllocator_getFreeBlockSlow(BlockAllocator *blockAllocator) {
         // it might be safe to remove this
         BlockMeta_SetSuperblockSize(superblock, 0);
         BlockMeta_SetFlag(superblock, block_simple);
+        assert(BlockMeta_GetAge(superblock) == 0);
         return superblock;
     } else {
         return NULL;
@@ -65,9 +67,11 @@ INLINE BlockMeta *BlockAllocator_GetFreeBlock(BlockAllocator *blockAllocator) {
     }
     BlockMeta *block = blockAllocator->smallestSuperblock.cursor;
     BlockMeta_SetFlag(block, block_simple);
+    BlockMeta_ResetAge(block);
     blockAllocator->smallestSuperblock.cursor++;
 
     // not decrementing freeBlockCount, because it is only used after sweep
+    assert(BlockMeta_GetAge(block) == 0);
     return block;
 }
 
@@ -99,9 +103,11 @@ BlockMeta *BlockAllocator_GetFreeSuperblock(BlockAllocator *blockAllocator,
 
     BlockMeta_SetFlag(superblock, block_superblock_start);
     BlockMeta_SetSuperblockSize(superblock, size);
+    BlockMeta_ResetAge(superblock);
     BlockMeta *limit = superblock + size;
     for (BlockMeta *current = superblock + 1; current < limit; current++) {
         BlockMeta_SetFlag(current, block_superblock_middle);
+        BlockMeta_ResetAge(current);
     }
     // not decrementing freeBlockCount, because it is only used after sweep
     return superblock;

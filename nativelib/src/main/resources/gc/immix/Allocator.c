@@ -19,8 +19,8 @@ void Allocator_Init(Allocator *allocator, BlockAllocator *blockAllocator,
 
     // For remembering old object that might contains inter-generational
     // pointers
-    allocator->rememberedObjects = malloc(sizeof(Stack));
-    Stack_Init(allocator->rememberedObjects, INITIAL_STACK_SIZE);
+    Stack_Init(&allocator->rememberedObjects, INITIAL_STACK_SIZE);
+    Stack_Init(&allocator->rememberedYoungObjects, INITIAL_STACK_SIZE);
 
     Allocator_InitCursors(allocator);
 }
@@ -65,6 +65,13 @@ word_t *Allocator_overflowAllocation(Allocator *allocator, size_t size) {
     word_t *end = (word_t *)((uint8_t *)start + size);
 
     if (end > allocator->largeLimit) {
+        if (blockAllocator.youngBlockCount >= MAX_YOUNG_BLOCKS) {
+#ifdef DEBUG_PRINT
+            printf("Young generation full\n");
+            fflush(stdout);
+#endif
+            return NULL;
+        }
         BlockMeta *block =
             BlockAllocator_GetFreeBlock(allocator->blockAllocator);
         if (block == NULL) {
@@ -154,6 +161,7 @@ bool Allocator_newBlock(Allocator *allocator) {
     if (block == NULL) {
         return false;
     }
+    assert(BlockMeta_GetAge(block) == 0);
     word_t * blockStart = BlockMeta_GetBlockStart(allocator->blockMetaStart,
                                          allocator->heapStart, block);
 

@@ -33,8 +33,7 @@ void Block_Recycle(Allocator *allocator, BlockMeta *blockMeta,
         if (!collectingOld) {
             assert(!BlockMeta_IsOld(blockMeta));
             BlockMeta_IncrementAge(blockMeta);
-            if (BlockMeta_GetAge(blockMeta) == MAX_AGE_YOUNG_BLOCK) {
-                BlockMeta_SetOld(blockMeta);
+            if (BlockMeta_IsOld(blockMeta)) {
                 blockAllocator.oldBlockCount ++;
             } else {
                 blockAllocator.youngBlockCount ++;
