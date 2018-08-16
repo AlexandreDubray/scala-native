@@ -7,6 +7,9 @@
 #include "../Constants.h"
 #include "../Log.h"
 
+#include <stdio.h>
+#include <stdlib.h>
+
 #define FLAG_MASK 0x3
 
 typedef enum {
@@ -35,7 +38,6 @@ static inline bool Block_IsUnavailable(BlockHeader *blockHeader) {
 static inline bool Block_IsFree(BlockHeader *blockHeader) {
     return (blockHeader->header.flags & FLAG_MASK) == block_free;
 }
-
 static inline bool Block_IsOld(BlockHeader *blockHeader) {
     return (blockHeader->header.flags & FLAG_MASK) == block_old;
 }
@@ -50,7 +52,7 @@ static inline int Block_GetAge(BlockHeader *blockHeader) {
 }
 
 static inline void Block_IncrementAge(BlockHeader *blockHeader) {
-    blockHeader->header.flags += 0x8;
+    blockHeader->header.flags += 0x4;
 }
 
 static inline void Block_ResetAge(BlockHeader *blockHeader) {
