@@ -222,7 +222,7 @@ bool Object_HasPointerToOldObject(Heap *heap, Object *object) {
                     }
                 } else {
                     BlockHeader *blockHeader = Block_GetBlockHeader((word_t *)fieldObject);
-                    if (Block_IsOld(blockHeader) || ( currentBlockHeader < blockHeader && (Block_GetAge(blockHeader) == MAX_AGE_YOUNG_OBJECT - 1))) {
+                    if (Block_IsOld(blockHeader) || ( currentBlockHeader < blockHeader && Block_IsMarked(blockHeader) && (Block_GetAge(blockHeader) == MAX_AGE_YOUNG_OBJECT - 1))) {
                         return true;
                     }
                 }
@@ -241,7 +241,7 @@ bool Object_HasPointerToOldObject(Heap *heap, Object *object) {
                     }
                 } else {
                     BlockHeader *blockHeader = Block_GetBlockHeader((word_t *)fieldObject);
-                    if (Block_IsOld(blockHeader) || (currentBlockHeader < blockHeader && Block_GetAge(blockHeader) == MAX_AGE_YOUNG_OBJECT - 1)) {
+                    if (Block_IsOld(blockHeader) || (currentBlockHeader < blockHeader && Block_IsMarked(blockHeader) && Block_GetAge(blockHeader) == MAX_AGE_YOUNG_OBJECT - 1)) {
                         return true;
                     }
                 }
@@ -273,7 +273,7 @@ bool Object_HasPointerToYoungObject(Heap *heap, Object *object) {
                 BlockHeader *blockHeader = Block_GetBlockHeader((word_t *)fieldObject);
                 if ((word_t *)object > (word_t *)blockHeader && !Block_IsOld(blockHeader)) {
                     return true;
-                } else if (currentBlockHeader < blockHeader && (Block_GetAge(blockHeader) < MAX_AGE_YOUNG_OBJECT - 1)) {
+                } else if (currentBlockHeader < blockHeader && Block_IsMarked(blockHeader) && (Block_GetAge(blockHeader) < MAX_AGE_YOUNG_OBJECT - 1)) {
                     return true;
                 }
             }
@@ -292,7 +292,7 @@ bool Object_HasPointerToYoungObject(Heap *heap, Object *object) {
                 BlockHeader *blockHeader = Block_GetBlockHeader((word_t *)fieldObject);
                 if ((word_t *)object > (word_t *)blockHeader && !Block_IsOld(blockHeader)) {
                     return true;
-                } else if (currentBlockHeader < blockHeader && (Block_GetAge(blockHeader) < MAX_AGE_YOUNG_OBJECT - 1)) {
+                } else if (currentBlockHeader < blockHeader && Block_IsMarked(blockHeader) && (Block_GetAge(blockHeader) < MAX_AGE_YOUNG_OBJECT - 1)) {
                     return true;
                 }
             }
