@@ -10,6 +10,7 @@
 #include "utils/MathUtils.h"
 #include "StackTrace.h"
 #include "Memory.h"
+#include "datastructures/Stack.h"
 
 // Allow read and write
 #define HEAP_MEM_PROT (PROT_READ | PROT_WRITE)
@@ -103,6 +104,7 @@ word_t *Heap_AllocLarge(Heap *heap, uint32_t objectSize) {
         // at least the size of the object we want to alloc
         object = LargeAllocator_GetBlock(heap->largeAllocator, size);
         if (object != NULL) {
+            Stack_Clear(heap->allocator->rememberedYoungObjects);
             Object_SetObjectType(&object->header, object_large);
             Object_SetSize(&object->header, size);
             return Object_ToMutatorAddress(object);
@@ -135,6 +137,7 @@ word_t *Heap_allocSmallSlow(Heap *heap, uint32_t size) {
 
     Object *object = (Object *)Allocator_Alloc(heap->allocator, size);
     if (object != NULL) {
+        Stack_Clear(heap->allocator->rememberedYoungObjects);
         ObjectHeader *objectHeader = &object->header;
 
         Object_SetObjectType(objectHeader, object_standard);
@@ -217,6 +220,10 @@ void Heap_CollectOld(Heap *heap, Stack *stack) {
     printf("\nCollect old\n");
     fflush(stdout);
 #endif
+    while (!Stack_IsEmpty(heap->allocator->rememberedObjects)) {
+        Object *object = Stack_Pop(heap->allocator->rememberedObjects);
+        Object_SetUnremembered(&object->header);
+    }
     Marker_MarkRoots(heap, stack, true);
     Heap_Recycle(heap, true);
 #ifdef DEBUG_PRINT

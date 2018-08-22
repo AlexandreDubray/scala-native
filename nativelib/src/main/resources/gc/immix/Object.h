@@ -3,6 +3,8 @@
 
 #include "headers/ObjectHeader.h"
 #include "LargeAllocator.h"
+#include "datastructures/Stack.h"
+#include "Heap.h"
 
 Object *Object_NextLargeObject(Object *objectHeader);
 Object *Object_NextObject(Object *objectHeader);
@@ -14,6 +16,8 @@ Object *Object_GetLargeYoungObject(LargeAllocator *largeAllocator, word_t *addre
 Object *Object_GetLargeOldObject(LargeAllocator *largeAllocator, word_t *address);
 void Object_Mark(Object *objectHeader, bool collectingOld);
 void Object_Unmark(Object *objectHeader);
+bool Object_HasPointerToOldObject(Heap *heap, Object *object);
+bool Object_HasPointerToYoungObject(Heap *heap, Object *object);
 size_t Object_ChunkSize(Object *objectHeader);
 
 #endif // IMMIX_OBJECT_H

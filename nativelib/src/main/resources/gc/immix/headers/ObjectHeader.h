@@ -70,6 +70,10 @@ static inline void Object_SetFree(ObjectHeader *objectHeader) {
     objectHeader->flag = object_free;
 }
 
+static inline bool Object_IsFree(ObjectHeader *objectHeader) {
+    return objectHeader->flag == object_free;
+}
+
 static inline bool Object_IsAllocated(ObjectHeader *objectHeader) {
     return objectHeader->flag == object_allocated;
 }

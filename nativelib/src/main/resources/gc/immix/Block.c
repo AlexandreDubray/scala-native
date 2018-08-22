@@ -5,6 +5,7 @@
 #include "Log.h"
 #include "Allocator.h"
 #include "Marker.h"
+#include "State.h"
 
 extern int __object_array_id;
 
@@ -17,7 +18,7 @@ INLINE void Block_recycleUnmarkedBlock(Allocator *allocator,
     Block_SetFlag(blockHeader, block_free);
 }
 
-INLINE void Block_recycleMarkedLine(BlockHeader *blockHeader,
+INLINE void Block_recycleMarkedLine(Allocator *allocator, BlockHeader *blockHeader,
                                     LineHeader *lineHeader, int lineIndex) {
     Line_Unmark(lineHeader);
     // If the line contains an object
@@ -31,11 +32,19 @@ INLINE void Block_recycleMarkedLine(BlockHeader *blockHeader,
             if (Block_IsOld(blockHeader)) {
                 if (!Object_IsMarked(objectHeader)) {
                     Object_SetFree(objectHeader);
+                } else if (Object_HasPointerToYoungObject(heap, object)) {
+                    // Here we do not need to mark the objects as remembered since
+                    // they are traverse in the heap order, we can not add the multiple
+                    // time
+                    Stack_Push(allocator->rememberedObjects, object);
                 }
             } else {
                 // The block is not old yet. It did not survive enough collection
                 if (Object_IsMarked(objectHeader)) {
                     Object_SetAllocated(objectHeader);
+                    if (Object_HasPointerToOldObject(heap, object)) {
+                        Stack_Push(allocator->rememberedYoungObjects, object);
+                    }
                 } else {
                     Object_SetFree(objectHeader);
                 }
@@ -45,7 +54,7 @@ INLINE void Block_recycleMarkedLine(BlockHeader *blockHeader,
     }
 }
 
-INLINE void Block_recycleMarkedLineOld(BlockHeader *blockHeader,
+INLINE void Block_recycleMarkedLineOld(Allocator *allocator, BlockHeader *blockHeader,
                                        LineHeader *lineHeader, int lineIndex) {
     Line_Unmark(lineHeader);
     if (Line_ContainsObject(lineHeader)) {
@@ -57,6 +66,12 @@ INLINE void Block_recycleMarkedLineOld(BlockHeader *blockHeader,
             ObjectHeader *objectHeader = &object->header;
             if (Object_IsAllocated(objectHeader)) {
                 Object_MarkObjectHeader(objectHeader);
+                // We do not need to check if the object is remembered since a young collection
+                // has been done before. Thus all remembered objects have already been processed.
+                if (Object_HasPointerToYoungObject(heap, object)) {
+                    Object_SetRemembered(&object->header);
+                    Stack_Push(allocator->rememberedObjects, object);
+                }
             } else {
                 Object_SetFree(objectHeader);
             }
@@ -83,8 +98,10 @@ void Block_Recycle(Allocator *allocator, BlockHeader *blockHeader) {
             assert(Block_IsMarked(blockHeader));
             Block_Unmark(blockHeader);
             Block_IncrementAge(blockHeader);
-            if (Block_GetAge(blockHeader) == MAX_AGE_YOUNG_BLOCK) {
+            if (Block_GetAge(blockHeader) == MAX_AGE_YOUNG_OBJECT) {
                 Block_SetFlag(blockHeader, block_old);
+            } else {
+                Block_SetFlag(blockHeader, block_unavailable);
             }
 
             int16_t lineIndex = 0;
@@ -96,7 +113,7 @@ void Block_Recycle(Allocator *allocator, BlockHeader *blockHeader) {
                 // inside marked
                 if (Line_IsMarked(lineHeader)) {
                     // Unmark line
-                    Block_recycleMarkedLine(blockHeader, lineHeader, lineIndex);
+                    Block_recycleMarkedLine(allocator, blockHeader, lineHeader, lineIndex);
                     lineIndex++;
                 } else {
                     // If the line is not marked, we need to merge all continuous
@@ -137,56 +154,58 @@ void Block_RecycleOld(Allocator *allocator, BlockHeader *blockHeader) {
 
     // Here we only consider old block. Since we always collect young generation
     // before old, the block can only be unused or old
-    if (Block_IsOld(blockHeader) && Block_IsMarked(blockHeader)) {
-        assert(Block_GetAge(blockHeader) == MAX_AGE_YOUNG_BLOCK);
-        int16_t lineIndex = 0;
-        int lastRecyclable = NO_RECYCLABLE_LINE;
-        Block_Unmark(blockHeader);
+    if (Block_IsOld(blockHeader)) {
+        if (Block_IsMarked(blockHeader)) {
+            assert(Block_GetAge(blockHeader) == MAX_AGE_YOUNG_OBJECT);
+            int16_t lineIndex = 0;
+            int lastRecyclable = NO_RECYCLABLE_LINE;
+            Block_Unmark(blockHeader);
 
-        while (lineIndex < LINE_COUNT) {
-            LineHeader *lineHeader =
-                Block_GetLineHeader(blockHeader, lineIndex);
+            while (lineIndex < LINE_COUNT) {
+                LineHeader *lineHeader =
+                    Block_GetLineHeader(blockHeader, lineIndex);
 
-            // If the line is marked, it contains old object. We need
-            // to re-mark them all as old
-            if (Line_IsMarked(lineHeader)) {
-                Block_recycleMarkedLineOld(blockHeader, lineHeader, lineIndex);
-                lineIndex++;
-            } else {
-                // If the line is not marked, we need to merge all continuous
-                // unmarked lines.
-
-                // If it's the first free line, update the block header to point
-                // to it.
-                if (lastRecyclable == NO_RECYCLABLE_LINE) {
-                    blockHeader->header.first = lineIndex;
+                // If the line is marked, it contains old object. We need
+                // to re-mark them all as old
+                if (Line_IsMarked(lineHeader)) {
+                    Block_recycleMarkedLineOld(allocator, blockHeader, lineHeader, lineIndex);
+                    lineIndex++;
                 } else {
-                    // Update the last recyclable line to point to the current
-                    // one
-                    Block_GetFreeLineHeader(blockHeader, lastRecyclable)->next =
-                        lineIndex;
-                }
-                lastRecyclable = lineIndex;
-                lineIndex++;
-                Line_SetEmpty(lineHeader);
-                allocator->freeMemoryAfterCollection += LINE_SIZE;
-                uint8_t size = 1;
-                while (lineIndex < LINE_COUNT &&
-                       !Line_IsMarked(lineHeader = Block_GetLineHeader(
-                                          blockHeader, lineIndex))) {
-                    size++;
+                    // If the line is not marked, we need to merge all continuous
+                    // unmarked lines.
+
+                    // If it's the first free line, update the block header to point
+                    // to it.
+                    if (lastRecyclable == NO_RECYCLABLE_LINE) {
+                        blockHeader->header.first = lineIndex;
+                    } else {
+                        // Update the last recyclable line to point to the current
+                        // one
+                        Block_GetFreeLineHeader(blockHeader, lastRecyclable)->next =
+                            lineIndex;
+                    }
+                    lastRecyclable = lineIndex;
                     lineIndex++;
                     Line_SetEmpty(lineHeader);
                     allocator->freeMemoryAfterCollection += LINE_SIZE;
+                    uint8_t size = 1;
+                    while (lineIndex < LINE_COUNT &&
+                           !Line_IsMarked(lineHeader = Block_GetLineHeader(
+                                              blockHeader, lineIndex))) {
+                        size++;
+                        lineIndex++;
+                        Line_SetEmpty(lineHeader);
+                        allocator->freeMemoryAfterCollection += LINE_SIZE;
+                    }
+                    Block_GetFreeLineHeader(blockHeader, lastRecyclable)->size =
+                        size;
                 }
-                Block_GetFreeLineHeader(blockHeader, lastRecyclable)->size =
-                    size;
             }
+        } else {
+            Block_recycleUnmarkedBlock(allocator, blockHeader);
+            allocator->freeBlockCount++;
+            allocator->freeMemoryAfterCollection += BLOCK_TOTAL_SIZE;
         }
-    } else {
-        Block_recycleUnmarkedBlock(allocator, blockHeader);
-        allocator->freeBlockCount++;
-        allocator->freeMemoryAfterCollection += BLOCK_TOTAL_SIZE;
     }
 }
 

@@ -21,6 +21,7 @@ typedef struct {
     word_t *largeLimit;
     size_t freeMemoryAfterCollection;
     Stack *rememberedObjects;
+    Stack *rememberedYoungObjects;
 } Allocator;
 
 Allocator *Allocator_Create(word_t *, int);

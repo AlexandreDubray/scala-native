@@ -21,6 +21,7 @@ bool Stack_Push(Stack *stack, Stack_Type word);
 Stack_Type Stack_Pop(Stack *stack);
 
 bool Stack_IsEmpty(Stack *stack);
+void Stack_Clear(Stack *stack);
 
 void Stack_DoubleSize(Stack *stack);
 

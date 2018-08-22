@@ -31,9 +31,9 @@ void Marker_markObject(Heap *heap, Stack *stack, Object *object, bool collecting
 }
 
 void Marker_mark(Heap *heap, Stack *stack, Object *object, bool collectingOld) {
-    if (!collectingOld && !Object_IsMarked(&object->header)) {
+    if (!collectingOld && Object_IsAllocated(&object->header)) {
         Marker_markObject(heap, stack, object, collectingOld);
-    } else if (collectingOld && !Object_IsAllocated(&object->header)) {
+    } else if (collectingOld && Object_IsMarked(&object->header)) {
         Marker_markObject(heap, stack, object, collectingOld);
     }
 }
@@ -74,6 +74,20 @@ void Marker_markConservative(Heap *heap, Stack *stack, word_t *address, bool col
 void Marker_Mark(Heap *heap, Stack *stack, bool collectingOld) {
     while (!Stack_IsEmpty(stack)) {
         Object *object = Stack_Pop(stack);
+
+        
+        // Putting back old object into remembered set
+        if (!collectingOld) {
+            if (!Object_IsLargeObject(&object->header)) {
+                if(Block_IsOld(Block_GetBlockHeader((word_t *)object))) {
+                    Object_SetRemembered(&object->header);
+                    Stack_Push(heap->allocator->rememberedObjects, object);
+                }
+            } else if (Object_IsMarked(&object->header)) {
+                Object_SetRemembered(&object->header);
+                Stack_Push(heap->allocator->rememberedObjects, object);
+            }
+        }
 
         if (object->rtti->rt.id == __object_array_id) {
             // remove header and rtti from size
@@ -145,9 +159,32 @@ void Marker_markRemembered(Heap *heap, Stack *stack) {
         assert(Object_Size(&object->header) != 0);
         assert(Object_IsRemembered(&object->header));
 
-        Object_SetUnremembered(&object->header);
+        if (!Object_IsLargeObject(&object->header)) {
+            BlockHeader *blockHeader = Block_GetBlockHeader((word_t *)object);
+            if (!Block_IsFree(blockHeader)) {
+                Object_SetUnremembered(&object->header);
+                Stack_Push(stack, object);
+            }
+        } else if (!Object_IsFree(&object->header)) {
+            Object_SetUnremembered(&object->header);
+            Stack_Push(stack, object);
+        }
+    }
+}
 
-        overflow = Stack_Push(stack, object);
+void Marker_markYoungRemembered(Heap *heap, Stack *stack) {
+    Stack *roots = heap->allocator->rememberedYoungObjects;
+    while (!Stack_IsEmpty(roots)) {
+        Object *object = (Object *)Stack_Pop(roots);
+        BlockHeader *blockHeader = Block_GetBlockHeader((word_t *)object);
+        if (!Object_IsLargeObject(&object->header)) {
+            BlockHeader *blockHeader = Block_GetBlockHeader((word_t *)object);
+            if (!Block_IsFree(blockHeader)) {
+                Stack_Push(stack, object);
+            }
+        } else if (!Object_IsFree(&object->header)) {
+            Stack_Push(stack, object);
+        }
     }
 }
 
@@ -157,6 +194,8 @@ void Marker_MarkRoots(Heap *heap, Stack *stack, bool collectingOld) {
     // collect the young generation.
     if (!collectingOld) {
         Marker_markRemembered(heap, stack);
+    } else {
+        Marker_markYoungRemembered(heap, stack);
     }
 
     Marker_markProgramStack(heap, stack, collectingOld);
