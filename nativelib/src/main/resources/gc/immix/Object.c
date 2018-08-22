@@ -7,6 +7,9 @@
 #include "utils/MathUtils.h"
 #include "Marker.h"
 
+extern int __object_array_id;
+#define LAST_FIELD_OFFSET -1
+
 Object *Object_NextLargeObject(Object *object) {
     size_t size = Object_ChunkSize(object);
     assert(size != 0);
@@ -199,6 +202,105 @@ void Object_Mark(Object *object, bool collectingOld) {
             Line_Mark(lineHeader);
         }
     }
+}
+
+bool Object_HasPointerToOldObject(Heap *heap, Object *object) {
+    BlockHeader *currentBlockHeader = Block_GetBlockHeader((word_t *)object);
+    if (object->rtti->rt.id == __object_array_id) {
+        // remove header and rtti from size
+        size_t size =
+            Object_Size(&object->header) - OBJECT_HEADER_SIZE - WORD_SIZE;
+        size_t nbWords = size / WORD_SIZE;
+        for (int i = 0; i < nbWords; i++) {
+
+            word_t *field = object->fields[i];
+            Object *fieldObject = Object_FromMutatorAddress(field);
+            if (heap_isObjectInHeap(heap, fieldObject)) {
+                if (Object_IsLargeObject(&fieldObject->header)) {
+                    if (Object_IsMarked(&fieldObject->header)) {
+                        return true;
+                    }
+                } else {
+                    BlockHeader *blockHeader = Block_GetBlockHeader((word_t *)fieldObject);
+                    if (Block_IsOld(blockHeader) || ( currentBlockHeader < blockHeader && (Block_GetAge(blockHeader) == MAX_AGE_YOUNG_OBJECT - 1))) {
+                        return true;
+                    }
+                }
+            }
+        }
+    } else {
+        int64_t *ptr_map = object->rtti->refMapStruct;
+        int i = 0;
+        while (ptr_map[i] != LAST_FIELD_OFFSET) {
+            word_t *field = object->fields[ptr_map[i]];
+            Object *fieldObject = Object_FromMutatorAddress(field);
+            if (heap_isObjectInHeap(heap, fieldObject)) {
+                if (Object_IsLargeObject(&fieldObject->header)) {
+                    if (Object_IsMarked(&fieldObject->header)) {
+                        return true;
+                    }
+                } else {
+                    BlockHeader *blockHeader = Block_GetBlockHeader((word_t *)fieldObject);
+                    if (Block_IsOld(blockHeader) || (currentBlockHeader < blockHeader && Block_GetAge(blockHeader) == MAX_AGE_YOUNG_OBJECT - 1)) {
+                        return true;
+                    }
+                }
+            }
+            ++i;
+        }
+    }
+    return false;
+
+}
+
+bool Object_HasPointerToYoungObject(Heap *heap, Object *object) {
+    BlockHeader *currentBlockHeader = Block_GetBlockHeader((word_t *)object);
+    if (object->rtti->rt.id == __object_array_id) {
+        // remove header and rtti from size
+        size_t size =
+            Object_Size(&object->header) - OBJECT_HEADER_SIZE - WORD_SIZE;
+        size_t nbWords = size / WORD_SIZE;
+        for (int i = 0; i < nbWords; i++) {
+
+            word_t *field = object->fields[i];
+            Object *fieldObject = Object_FromMutatorAddress(field);
+            if (!heap_isObjectInHeap(heap, fieldObject)) {
+                continue;
+            }
+            // At the moment, large object are still promoted in masse after
+            // first collection. So when collecting old gen, large object can only be old
+            if (!Object_IsLargeObject(&fieldObject->header)) {
+                BlockHeader *blockHeader = Block_GetBlockHeader((word_t *)fieldObject);
+                if ((word_t *)object > (word_t *)blockHeader && !Block_IsOld(blockHeader)) {
+                    return true;
+                } else if (currentBlockHeader < blockHeader && (Block_GetAge(blockHeader) < MAX_AGE_YOUNG_OBJECT - 1)) {
+                    return true;
+                }
+            }
+        }
+    } else {
+        int64_t *ptr_map = object->rtti->refMapStruct;
+        int i = 0;
+        while (ptr_map[i] != LAST_FIELD_OFFSET) {
+            word_t *field = object->fields[ptr_map[i]];
+            Object *fieldObject = Object_FromMutatorAddress(field);
+            if (!heap_isObjectInHeap(heap, fieldObject)) {
+                ++i;
+                continue;
+            }
+            if (!Object_IsLargeObject(&fieldObject->header)) {
+                BlockHeader *blockHeader = Block_GetBlockHeader((word_t *)fieldObject);
+                if ((word_t *)object > (word_t *)blockHeader && !Block_IsOld(blockHeader)) {
+                    return true;
+                } else if (currentBlockHeader < blockHeader && (Block_GetAge(blockHeader) < MAX_AGE_YOUNG_OBJECT - 1)) {
+                    return true;
+                }
+            }
+            ++i;
+        }
+    }
+    return false;
+
 }
 
 size_t Object_ChunkSize(Object *object) {
