@@ -238,6 +238,7 @@ void Heap_Recycle(Heap *heap, bool collectingOld) {
 
     heap->allocator->freeBlockCount = 0;
     heap->allocator->recycledBlockCount = 0;
+    heap->allocator->youngBlockCount = 0;
 
     heap->allocator->freeMemoryAfterCollection = 0;
 

@@ -36,6 +36,7 @@ Allocator *Allocator_Create(word_t *heapStart, int blockCount) {
     allocator->blockCount = (uint64_t)blockCount;
     allocator->freeBlockCount = (uint64_t)blockCount;
     allocator->recycledBlockCount = 0;
+    allocator->youngBlockCount = 0;
 
     // For remembering old object that might contains inter-generational
     // pointers
@@ -120,6 +121,7 @@ word_t *Allocator_overflowAllocation(Allocator *allocator, size_t size) {
             return NULL;
         }
         BlockHeader *block = BlockList_RemoveFirstBlock(&allocator->freeBlocks);
+        allocator->youngBlockCount++;
         allocator->largeBlock = block;
         allocator->largeCursor = Block_GetFirstWord(block);
         allocator->largeLimit = Block_GetBlockEnd(block);
@@ -153,6 +155,10 @@ INLINE word_t *Allocator_Alloc(Allocator *allocator, size_t size) {
         if (size > LINE_SIZE) {
             return Allocator_overflowAllocation(allocator, size);
         } else {
+            // If maximal number of free block reached, need to collect the young generation
+            if (!(allocator->youngBlockCount < MAX_YOUNG_BLOCKS)) {
+                return NULL;
+            }
             // Otherwise try to get a new line.
             if (Allocator_getNextLine(allocator)) {
                 return Allocator_Alloc(allocator, size);
@@ -239,6 +245,7 @@ bool Allocator_getNextLine(Allocator *allocator) {
             return false;
         }
 
+        allocator->youngBlockCount ++;
         Allocator_firstLineNewBlock(allocator, block);
 
         return true;
