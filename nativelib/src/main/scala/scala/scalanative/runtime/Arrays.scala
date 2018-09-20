@@ -143,10 +143,11 @@ object Array {
 final class UnitArray private () extends Array[Unit] {
   import Array._
 
-  @inline def stride: CSize =
+  @inline def stride: CSize = {
     sizeof[Unit]
+  }
 
-  @inline def at(i: Int): Ptr[Unit] =
+  @inline def at(i: Int): Ptr[Unit] = {
     if (i < 0 || i >= length) {
       throw new IndexOutOfBoundsException(i.toString)
     } else {
@@ -155,11 +156,16 @@ final class UnitArray private () extends Array[Unit] {
 
       ith.cast[Ptr[Unit]]
     }
-  @inline def apply(i: Int): Unit =
-    !at(i)
+  }
 
-  @inline def update(i: Int, value: Unit): Unit =
+  @inline def apply(i: Int): Unit = {
+    !at(i)
+  }
+
+  @inline def update(i: Int, value: Unit): Unit = {
     !at(i) = value
+    GC.write_barrier(this)
+  }
 
   @inline override def clone(): UnitArray = {
     val arrinfo = typeof[UnitArray].cast[Ptr[ClassType]]
@@ -200,10 +206,11 @@ object UnitArray {
 final class BooleanArray private () extends Array[Boolean] {
   import Array._
 
-  @inline def stride: CSize =
+  @inline def stride: CSize = {
     sizeof[Boolean]
+  }
 
-  @inline def at(i: Int): Ptr[Boolean] =
+  @inline def at(i: Int): Ptr[Boolean] = {
     if (i < 0 || i >= length) {
       throw new IndexOutOfBoundsException(i.toString)
     } else {
@@ -212,11 +219,16 @@ final class BooleanArray private () extends Array[Boolean] {
 
       ith.cast[Ptr[Boolean]]
     }
-  @inline def apply(i: Int): Boolean =
-    !at(i)
+  }
 
-  @inline def update(i: Int, value: Boolean): Unit =
+  @inline def apply(i: Int): Boolean = {
+    !at(i)
+  }
+
+  @inline def update(i: Int, value: Boolean): Unit = {
     !at(i) = value
+
+  }
 
   @inline override def clone(): BooleanArray = {
     val arrinfo = typeof[BooleanArray].cast[Ptr[ClassType]]
@@ -257,10 +269,11 @@ object BooleanArray {
 final class CharArray private () extends Array[Char] {
   import Array._
 
-  @inline def stride: CSize =
+  @inline def stride: CSize = {
     sizeof[Char]
+  }
 
-  @inline def at(i: Int): Ptr[Char] =
+  @inline def at(i: Int): Ptr[Char] = {
     if (i < 0 || i >= length) {
       throw new IndexOutOfBoundsException(i.toString)
     } else {
@@ -269,11 +282,16 @@ final class CharArray private () extends Array[Char] {
 
       ith.cast[Ptr[Char]]
     }
-  @inline def apply(i: Int): Char =
-    !at(i)
+  }
 
-  @inline def update(i: Int, value: Char): Unit =
+  @inline def apply(i: Int): Char = {
+    !at(i)
+  }
+
+  @inline def update(i: Int, value: Char): Unit = {
     !at(i) = value
+
+  }
 
   @inline override def clone(): CharArray = {
     val arrinfo = typeof[CharArray].cast[Ptr[ClassType]]
@@ -314,10 +332,11 @@ object CharArray {
 final class ByteArray private () extends Array[Byte] {
   import Array._
 
-  @inline def stride: CSize =
+  @inline def stride: CSize = {
     sizeof[Byte]
+  }
 
-  @inline def at(i: Int): Ptr[Byte] =
+  @inline def at(i: Int): Ptr[Byte] = {
     if (i < 0 || i >= length) {
       throw new IndexOutOfBoundsException(i.toString)
     } else {
@@ -326,11 +345,16 @@ final class ByteArray private () extends Array[Byte] {
 
       ith.cast[Ptr[Byte]]
     }
-  @inline def apply(i: Int): Byte =
-    !at(i)
+  }
 
-  @inline def update(i: Int, value: Byte): Unit =
+  @inline def apply(i: Int): Byte = {
+    !at(i)
+  }
+
+  @inline def update(i: Int, value: Byte): Unit = {
     !at(i) = value
+
+  }
 
   @inline override def clone(): ByteArray = {
     val arrinfo = typeof[ByteArray].cast[Ptr[ClassType]]
@@ -371,10 +395,11 @@ object ByteArray {
 final class ShortArray private () extends Array[Short] {
   import Array._
 
-  @inline def stride: CSize =
+  @inline def stride: CSize = {
     sizeof[Short]
+  }
 
-  @inline def at(i: Int): Ptr[Short] =
+  @inline def at(i: Int): Ptr[Short] = {
     if (i < 0 || i >= length) {
       throw new IndexOutOfBoundsException(i.toString)
     } else {
@@ -383,11 +408,16 @@ final class ShortArray private () extends Array[Short] {
 
       ith.cast[Ptr[Short]]
     }
-  @inline def apply(i: Int): Short =
-    !at(i)
+  }
 
-  @inline def update(i: Int, value: Short): Unit =
+  @inline def apply(i: Int): Short = {
+    !at(i)
+  }
+
+  @inline def update(i: Int, value: Short): Unit = {
     !at(i) = value
+
+  }
 
   @inline override def clone(): ShortArray = {
     val arrinfo = typeof[ShortArray].cast[Ptr[ClassType]]
@@ -428,10 +458,11 @@ object ShortArray {
 final class IntArray private () extends Array[Int] {
   import Array._
 
-  @inline def stride: CSize =
+  @inline def stride: CSize = {
     sizeof[Int]
+  }
 
-  @inline def at(i: Int): Ptr[Int] =
+  @inline def at(i: Int): Ptr[Int] = {
     if (i < 0 || i >= length) {
       throw new IndexOutOfBoundsException(i.toString)
     } else {
@@ -440,11 +471,16 @@ final class IntArray private () extends Array[Int] {
 
       ith.cast[Ptr[Int]]
     }
-  @inline def apply(i: Int): Int =
-    !at(i)
+  }
 
-  @inline def update(i: Int, value: Int): Unit =
+  @inline def apply(i: Int): Int = {
+    !at(i)
+  }
+
+  @inline def update(i: Int, value: Int): Unit = {
     !at(i) = value
+
+  }
 
   @inline override def clone(): IntArray = {
     val arrinfo = typeof[IntArray].cast[Ptr[ClassType]]
@@ -485,10 +521,11 @@ object IntArray {
 final class LongArray private () extends Array[Long] {
   import Array._
 
-  @inline def stride: CSize =
+  @inline def stride: CSize = {
     sizeof[Long]
+  }
 
-  @inline def at(i: Int): Ptr[Long] =
+  @inline def at(i: Int): Ptr[Long] = {
     if (i < 0 || i >= length) {
       throw new IndexOutOfBoundsException(i.toString)
     } else {
@@ -497,11 +534,16 @@ final class LongArray private () extends Array[Long] {
 
       ith.cast[Ptr[Long]]
     }
-  @inline def apply(i: Int): Long =
-    !at(i)
+  }
 
-  @inline def update(i: Int, value: Long): Unit =
+  @inline def apply(i: Int): Long = {
+    !at(i)
+  }
+
+  @inline def update(i: Int, value: Long): Unit = {
     !at(i) = value
+
+  }
 
   @inline override def clone(): LongArray = {
     val arrinfo = typeof[LongArray].cast[Ptr[ClassType]]
@@ -542,10 +584,11 @@ object LongArray {
 final class FloatArray private () extends Array[Float] {
   import Array._
 
-  @inline def stride: CSize =
+  @inline def stride: CSize = {
     sizeof[Float]
+  }
 
-  @inline def at(i: Int): Ptr[Float] =
+  @inline def at(i: Int): Ptr[Float] = {
     if (i < 0 || i >= length) {
       throw new IndexOutOfBoundsException(i.toString)
     } else {
@@ -554,11 +597,16 @@ final class FloatArray private () extends Array[Float] {
 
       ith.cast[Ptr[Float]]
     }
-  @inline def apply(i: Int): Float =
-    !at(i)
+  }
 
-  @inline def update(i: Int, value: Float): Unit =
+  @inline def apply(i: Int): Float = {
+    !at(i)
+  }
+
+  @inline def update(i: Int, value: Float): Unit = {
     !at(i) = value
+
+  }
 
   @inline override def clone(): FloatArray = {
     val arrinfo = typeof[FloatArray].cast[Ptr[ClassType]]
@@ -599,10 +647,11 @@ object FloatArray {
 final class DoubleArray private () extends Array[Double] {
   import Array._
 
-  @inline def stride: CSize =
+  @inline def stride: CSize = {
     sizeof[Double]
+  }
 
-  @inline def at(i: Int): Ptr[Double] =
+  @inline def at(i: Int): Ptr[Double] = {
     if (i < 0 || i >= length) {
       throw new IndexOutOfBoundsException(i.toString)
     } else {
@@ -611,11 +660,16 @@ final class DoubleArray private () extends Array[Double] {
 
       ith.cast[Ptr[Double]]
     }
-  @inline def apply(i: Int): Double =
-    !at(i)
+  }
 
-  @inline def update(i: Int, value: Double): Unit =
+  @inline def apply(i: Int): Double = {
+    !at(i)
+  }
+
+  @inline def update(i: Int, value: Double): Unit = {
     !at(i) = value
+
+  }
 
   @inline override def clone(): DoubleArray = {
     val arrinfo = typeof[DoubleArray].cast[Ptr[ClassType]]
@@ -656,10 +710,11 @@ object DoubleArray {
 final class ObjectArray private () extends Array[Object] {
   import Array._
 
-  @inline def stride: CSize =
+  @inline def stride: CSize = {
     sizeof[Object]
+  }
 
-  @inline def at(i: Int): Ptr[Object] =
+  @inline def at(i: Int): Ptr[Object] = {
     if (i < 0 || i >= length) {
       throw new IndexOutOfBoundsException(i.toString)
     } else {
@@ -668,11 +723,16 @@ final class ObjectArray private () extends Array[Object] {
 
       ith.cast[Ptr[Object]]
     }
-  @inline def apply(i: Int): Object =
-    !at(i)
+  }
 
-  @inline def update(i: Int, value: Object): Unit =
+  @inline def apply(i: Int): Object = {
+    !at(i)
+  }
+
+  @inline def update(i: Int, value: Object): Unit = {
     !at(i) = value
+    GC.write_barrier(this)
+  }
 
   @inline override def clone(): ObjectArray = {
     val arrinfo = typeof[ObjectArray].cast[Ptr[ClassType]]

@@ -141,16 +141,18 @@ object Array {
 % for T in types:
 
 %{
-   alloc = 'GC.alloc_atomic' if T != 'Object' and T != 'Unit' else 'GC.alloc'
+   alloc   = 'GC.alloc_atomic' if T != 'Object' and T != 'Unit' else 'GC.alloc'
+   barrier = '' if T != 'Object' and T != 'Unit' else 'GC.write_barrier(this)'
 }%
 
 final class ${T}Array private () extends Array[${T}] {
   import Array._
 
-  @inline def stride: CSize =
+  @inline def stride: CSize = {
     sizeof[${T}]
+  }
 
-  @inline def at(i: Int): Ptr[${T}] =
+  @inline def at(i: Int): Ptr[${T}] = {
     if (i < 0 || i >= length) {
       throw new IndexOutOfBoundsException(i.toString)
     } else {
@@ -159,11 +161,16 @@ final class ${T}Array private () extends Array[${T}] {
 
       ith.cast[Ptr[${T}]]
     }
-  @inline def apply(i: Int): ${T} =
-    !at(i)
+  }
 
-  @inline def update(i: Int, value: ${T}): Unit =
+  @inline def apply(i: Int): ${T} = {
+    !at(i)
+  }
+
+  @inline def update(i: Int, value: ${T}): Unit = {
     !at(i) = value
+    ${barrier}
+  }
 
   @inline override def clone(): ${T}Array = {
     val arrinfo = typeof[${T}Array].cast[Ptr[ClassType]]
