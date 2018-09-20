@@ -17,10 +17,12 @@ import scalanative.linker.{
 
 object Lower {
 
-  def apply(defns: Seq[Defn])(implicit meta: Metadata): Seq[Defn] =
-    (new Impl).onDefns(defns)
+  def apply(config: build.Config, defns: Seq[Defn])(
+      implicit meta: Metadata): Seq[Defn] =
+    (new Impl(config)).onDefns(defns)
 
-  private final class Impl(implicit meta: Metadata) extends Transform {
+  private final class Impl(config: build.Config)(implicit meta: Metadata)
+      extends Transform {
     import meta._
 
     implicit val linked = meta.linked
@@ -214,6 +216,10 @@ object Lower {
 
       val elem = genFieldElemOp(buf, obj, name, unwind)
       buf.let(n, Op.Store(ty, elem, value), unwind)
+
+      if (config.gc.needsWriteBarrier && ty.isInstanceOf[Type.RefKind]) {
+        buf.call(barrierSig, barrier, Seq(obj), Next.None)
+      }
     }
 
     def genMethodOp(buf: Buffer, n: Local, op: Op.Method, unwind: Next) = {
@@ -1032,6 +1038,10 @@ object Lower {
   val RuntimeNull    = Type.Ref(Global.Top("scala.runtime.Null$"))
   val RuntimeNothing = Type.Ref(Global.Top("scala.runtime.Nothing$"))
 
+  val barrierName = extern("scalanative_write_barrier")
+  val barrierSig  = Type.Function(Seq(Type.Ptr), Type.Unit)
+  val barrier     = Val.Global(barrierName, barrierSig)
+
   val injects: Seq[Defn] = {
     val buf = mutable.UnrolledBuffer.empty[Defn]
     buf += Defn.Declare(Attrs.None, allocSmallName, allocSig)
@@ -1039,6 +1049,7 @@ object Lower {
     buf += Defn.Declare(Attrs.None, dyndispatchName, dyndispatchSig)
     buf += Defn.Const(Attrs.None, unitName, unitTy, unitValue)
     buf += Defn.Declare(Attrs.None, throwName, throwSig)
+    buf += Defn.Declare(Attrs.None, barrierName, barrierSig)
     buf
   }
 
