@@ -60,6 +60,10 @@ static inline void BlockMeta_IncrementAge(BlockMeta *blockMeta) {
     blockMeta->block.simple.flags += 0x8;
 }
 
+static inline void BlockMeta_SetOld(BlockMeta *blockMeta) {
+    blockMeta->block.simple.flags += 0x8*MAX_AGE_YOUNG_BLOCK;
+}
+
 static inline void BlockMeta_ResetAge(BlockMeta *blockMeta) {
     blockMeta->block.simple.flags &= FLAG_MASK;
     assert(BlockMeta_GetAge(blockMeta) == 0);

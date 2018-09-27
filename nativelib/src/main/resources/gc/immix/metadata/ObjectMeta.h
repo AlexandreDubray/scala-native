@@ -113,8 +113,8 @@ static inline void ObjectMeta_SweepNewOldLineAt(ObjectMeta *start) {
     // }
     assert(WORDS_IN_LINE / ALLOCATION_ALIGNMENT_WORDS / 8 == 2);
     uint64_t *first = (uint64_t *)start;
-    first[0] &= SWEEP_MASK;
-    first[0] &= SWEEP_MASK;
+    first[0] = (first[0] & SWEEP_MASK_REMEMBERED) | (first[0] & SWEEP_MASK);
+    first[1] = (first[1] & SWEEP_MASK_REMEMBERED) | (first[1] & SWEEP_MASK);
 }
 
 #define SWEEP_MASK_OLD 0x0202020202020202UL
@@ -162,6 +162,7 @@ static inline void ObjectMeta_SweepNewOld(ObjectMeta *cursor) {
     // } else {
     //     ObjectMeta_SetFree(cursor);
     // }
-    *cursor &= 0x4;
+    // TODO: check why it works
+    *cursor &= (*cursor & REMEMBERED_MASK) | (*cursor & 0x4);
 }
 #endif // IMMIX_OBJECTMETA_H

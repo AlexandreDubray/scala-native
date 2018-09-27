@@ -13,7 +13,8 @@
 #include "Memory.h"
 #include <memory.h>
 #include <time.h>
-#include "datastructures/Stack.h"
+
+#define DEBUG_PRINT
 
 // Allow read and write
 #define HEAP_MEM_PROT (PROT_READ | PROT_WRITE)
@@ -231,6 +232,37 @@ done:
     return (word_t *)object;
 }
 
+NOINLINE word_t *Heap_allocPretenuredSlow(Heap *heap, uint32_t size) {
+    Object *object;
+    object = (Object *)Allocator_AllocPretenured(&allocator, size);
+
+    if (object != NULL)
+        goto done;
+
+    Heap_Collect(heap, &stack);
+    object = (Object *)Allocator_AllocPretenured(&allocator, size);
+
+    if (object != NULL)
+        goto done;
+
+    Heap_CollectOld(heap, &stack);
+    object = (Object *)Allocator_AllocPretenured(&allocator, size);
+
+    if (object != NULL)
+        goto done;
+
+    Heap_Grow(heap, WORDS_IN_BLOCK);
+    object = (Object *)Allocator_AllocPretenured(&allocator, size);
+
+done:
+    assert(Heap_IsWordInHeap(heap, (word_t *)object));
+    assert(object != NULL);
+    Stack_Clear(&allocator.rememberedYoungObjects);
+    ObjectMeta *objectMeta = Bytemap_Get(allocator.bytemap, (word_t *)object);
+    ObjectMeta_SetMarked(objectMeta);
+    return (word_t *)object;
+}
+
 INLINE word_t *Heap_AllocSmall(Heap *heap, uint32_t size) {
     assert(size % ALLOCATION_ALIGNMENT == 0);
     assert(size < MIN_BLOCK_SIZE);
@@ -257,11 +289,40 @@ INLINE word_t *Heap_AllocSmall(Heap *heap, uint32_t size) {
     return (word_t *)object;
 }
 
+INLINE word_t *Heap_AllocPretenured(Heap *heap, uint32_t size) {
+    printf("Allocating Pretenured\n");fflush(stdout);
+    assert(size % ALLOCATION_ALIGNMENT == 0);
+    assert(size < MIN_BLOCK_SIZE);
+
+    word_t *start = allocator.pretenuredCursor;
+    word_t *end = (word_t *)((uint8_t *)start + size);
+
+    if (end >= allocator.pretenuredLimit) {
+        return Heap_allocPretenuredSlow(heap, size);
+    }
+
+    allocator.pretenuredCursor = end;
+
+    memset(start, 0, size);
+
+    Object *object = (Object *)start;
+    ObjectMeta *objectMeta = Bytemap_Get(allocator.bytemap, (word_t *)object);
+    ObjectMeta_SetMarked(objectMeta);
+
+    __builtin_prefetch(object + 36, 0, 3);
+
+    assert(Heap_IsWordInHeap(heap, (word_t *)object));
+    printf("End allocating Pretenured\n");fflush(stdout);
+    return (word_t *)object;
+}
+
 word_t *Heap_Alloc(Heap *heap, uint32_t objectSize) {
     assert(objectSize % ALLOCATION_ALIGNMENT == 0);
 
     if (objectSize >= LARGE_BLOCK_SIZE) {
         return Heap_AllocLarge(heap, objectSize);
+    } else if (PRETENURE_OBJECT && objectSize >= PRETENURE_THRESHOLD) {
+        return Heap_AllocPretenured(heap, objectSize);
     } else {
         return Heap_AllocSmall(heap, objectSize);
     }

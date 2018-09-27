@@ -134,7 +134,11 @@ Object *LargeAllocator_GetBlock(LargeAllocator *allocator,
     }
 
     ObjectMeta *objectMeta = Bytemap_Get(allocator->bytemap, (word_t *)chunk);
-    ObjectMeta_SetAllocated(objectMeta);
+    if (PRETENURE_OBJECT) {
+        ObjectMeta_SetMarked(objectMeta);
+    } else {
+        ObjectMeta_SetAllocated(objectMeta);
+    }
     Object *object = (Object *)chunk;
     memset(object, 0, actualBlockSize);
     return object;
@@ -178,7 +182,6 @@ void LargeAllocator_Sweep(LargeAllocator *allocator, BlockMeta *blockMeta,
 
         BlockMeta_SetFlag(lastBlock, block_superblock_start);
         BlockMeta_SetSuperblockSize(lastBlock, 1);
-        assert(BlockMeta_IsOld(blockMeta));
     }
 
     word_t *lastBlockStart = blockEnd - WORDS_IN_BLOCK;

@@ -17,6 +17,10 @@ typedef struct {
     word_t *blockStart;
     word_t *cursor;
     word_t *limit;
+    BlockMeta *pretenuredBlock;
+    word_t *pretenuredBlockStart;
+    word_t *pretenuredCursor;
+    word_t *pretenuredLimit;
     BlockMeta *largeBlock;
     word_t *largeBlockStart;
     word_t *largeCursor;
@@ -32,5 +36,6 @@ bool Allocator_CanInitCursors(Allocator *allocator);
 void Allocator_InitCursors(Allocator *allocator);
 void Allocator_Clear(Allocator *allocator);
 word_t *Allocator_Alloc(Allocator *allocator, size_t size);
+word_t *Allocator_AllocPretenured(Allocator *allocator, size_t size);
 
 #endif // IMMIX_ALLOCATOR_H

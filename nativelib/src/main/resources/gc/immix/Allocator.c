@@ -3,11 +3,12 @@
 #include "Block.h"
 #include <stdio.h>
 #include <memory.h>
-#include "State.h"
-#include "Marker.h"
+#include "State.c"
 
 bool Allocator_getNextLine(Allocator *allocator);
 bool Allocator_newBlock(Allocator *allocator);
+bool Allocator_newPretenuredBlock(Allocator *allocator);
+bool Allocator_getNextPretenuredLine(Allocator *allocator);
 
 void Allocator_Init(Allocator *allocator, BlockAllocator *blockAllocator,
                     Bytemap *bytemap, word_t *blockMetaStart,
@@ -42,6 +43,11 @@ void Allocator_InitCursors(Allocator *allocator) {
     // Init cursor
     bool didInit = Allocator_newBlock(allocator);
     assert(didInit);
+
+    if (PRETENURE_OBJECT) {
+        didInit = Allocator_newPretenuredBlock(allocator);
+        assert(didInit);
+    }
 
     // Init large cursor
     BlockMeta *largeBlock =
@@ -112,7 +118,6 @@ INLINE word_t *Allocator_Alloc(Allocator *allocator, size_t size) {
             if (!(allocator->blockAllocator->youngBlockCount < MAX_YOUNG_BLOCKS)) {
                 return NULL;
             }
-            // Otherwise try to get a new line.
             if (Allocator_getNextLine(allocator)) {
                 return Allocator_Alloc(allocator, size);
             }
@@ -172,5 +177,58 @@ bool Allocator_newBlock(Allocator *allocator) {
     allocator->block = block;
     allocator->blockStart = blockStart;
 
+    return true;
+}
+
+INLINE word_t *Allocator_AllocPretenured(Allocator *allocator, size_t size) {
+    word_t *start = allocator->pretenuredCursor;
+    word_t *end = (word_t *)((uint8_t *)start + size);
+    if (end > allocator->pretenuredLimit) {
+        if (Allocator_getNextPretenuredLine(allocator)) {
+            return Allocator_AllocPretenured(allocator, size);
+        }
+        return NULL;
+    }
+
+    memset(start, 0, size);
+    allocator->pretenuredCursor = end;
+    return start;
+}
+
+bool Allocator_getNextPretenuredLine(Allocator *allocator) {
+    BlockMeta *block = allocator->block;
+    word_t *blockStart = allocator->blockStart;
+
+    int lineIndex = BlockMeta_FirstFreeLine(block);
+    if (lineIndex == LAST_HOLE) {
+        return Allocator_newPretenuredBlock(allocator);
+    }
+
+    word_t *line = Block_GetLineAddress(blockStart, lineIndex);
+
+    allocator->pretenuredCursor = line;
+    FreeLineMeta *lineMeta = (FreeLineMeta *)line;
+    BlockMeta_SetFirstFreeLine(block, lineMeta->next);
+    uint16_t size = lineMeta->size;
+    allocator->pretenuredLimit = line + (size * WORDS_IN_LINE);
+    assert(allocator->pretenuredLimit <= Block_GetBlockEnd(blockStart));
+
+    return true;
+}
+
+bool Allocator_newPretenuredBlock(Allocator *allocator) {
+    BlockMeta *block = BlockAllocator_GetFreeBlock(allocator->blockAllocator);
+    if (block == NULL) {
+        return false;
+    }
+    BlockMeta_SetOld(block);
+    word_t * blockStart = BlockMeta_GetBlockStart(allocator->blockMetaStart,
+                                         allocator->heapStart, block);
+    allocator->pretenuredCursor = blockStart;
+    allocator->pretenuredLimit = Block_GetBlockEnd(blockStart);
+    BlockMeta_SetFirstFreeLine(block, LAST_HOLE);
+    allocator->pretenuredBlock = block;
+    allocator->pretenuredBlockStart = blockStart;
+    blockAllocator.oldBlockCount++;
     return true;
 }
