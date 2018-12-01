@@ -79,20 +79,6 @@ void Object_Mark(Heap *heap, Object *object, ObjectMeta *objectMeta, bool collec
         heap->blockMetaStart, heap->heapStart, (word_t *)object);
     if (!BlockMeta_ContainsLargeObjects(blockMeta)) {
         // Mark the block
-        word_t *blockStart = Block_GetBlockStartForWord((word_t *)object);
         BlockMeta_Mark(blockMeta);
-
-        // Mark all Lines
-        word_t *lastWord = Object_LastWord(object);
-
-        assert(blockMeta == Block_GetBlockMeta(heap->blockMetaStart,
-                                               heap->heapStart, lastWord));
-        LineMeta *firstLineMeta = Heap_LineMetaForWord(heap, (word_t *)object);
-        LineMeta *lastLineMeta = Heap_LineMetaForWord(heap, lastWord);
-        assert(firstLineMeta <= lastLineMeta);
-        for (LineMeta *lineMeta = firstLineMeta; lineMeta <= lastLineMeta;
-             lineMeta++) {
-            Line_Mark(lineMeta);
-        }
     }
 }

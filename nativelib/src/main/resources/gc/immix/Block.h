@@ -5,5 +5,5 @@
 #include "Heap.h"
 
 void Block_Recycle(Allocator *allocator, BlockMeta *block, word_t *blockStart,
-                   LineMeta *lineMetas, bool collectingOld);
+                   bool collectingOld);
 #endif // IMMIX_BLOCK_H

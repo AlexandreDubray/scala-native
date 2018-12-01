@@ -14,8 +14,6 @@
 #include <memory.h>
 #include <time.h>
 
-#define DEBUG_PRINT
-
 // Allow read and write
 #define HEAP_MEM_PROT (PROT_READ | PROT_WRITE)
 // Map private anonymous memory, and prevent from reserving swap
@@ -114,16 +112,6 @@ void Heap_Init(Heap *heap, size_t minHeapSize, size_t maxHeapSize) {
     heap->blockMetaStart = blockMetaStart;
     heap->blockMetaEnd =
         blockMetaStart + initialBlockCount * sizeof(BlockMeta) / WORD_SIZE;
-
-    // reserve space for line headers
-    size_t lineMetaSpaceSize =
-        (size_t)maxNumberOfBlocks * LINE_COUNT * LINE_METADATA_SIZE;
-    word_t *lineMetaStart = Heap_mapAndAlign(lineMetaSpaceSize, WORD_SIZE);
-    heap->lineMetaStart = lineMetaStart;
-    assert(LINE_COUNT * LINE_SIZE == BLOCK_TOTAL_SIZE);
-    assert(LINE_COUNT * LINE_METADATA_SIZE % WORD_SIZE == 0);
-    heap->lineMetaEnd = lineMetaStart + initialBlockCount * LINE_COUNT *
-                                            LINE_METADATA_SIZE / WORD_SIZE;
 
     word_t *heapStart = Heap_mapAndAlign(maxHeapSize, BLOCK_TOTAL_SIZE);
 
@@ -404,7 +392,6 @@ void Heap_Recycle(Heap *heap, bool collectingOld) {
 
     BlockMeta *current = (BlockMeta *)heap->blockMetaStart;
     word_t *currentBlockStart = heap->heapStart;
-    LineMeta *lineMetas = (LineMeta *)heap->lineMetaStart;
     word_t *end = heap->blockMetaEnd;
     while ((word_t *)current < end) {
         int size = 1;
@@ -412,7 +399,7 @@ void Heap_Recycle(Heap *heap, bool collectingOld) {
         if (BlockMeta_IsSimpleBlock(current)) {
             assert(!BlockMeta_IsFree(current));
             if ((!collectingOld && !BlockMeta_IsOld(current)) || (collectingOld && BlockMeta_IsOld(current))) {
-                Block_Recycle(&allocator, current, currentBlockStart, lineMetas, collectingOld);
+                Block_Recycle(&allocator, current, currentBlockStart, collectingOld);
             } else if (collectingOld) {
                 assert(!BlockMeta_IsOld(current));
                 blockAllocator.youngBlockCount ++;
@@ -432,7 +419,6 @@ void Heap_Recycle(Heap *heap, bool collectingOld) {
         assert(size > 0);
         current += size;
         currentBlockStart += WORDS_IN_BLOCK * size;
-        lineMetas += LINE_COUNT * size;
     }
 
     if (collectingOld && Heap_shouldGrow(heap)) {
@@ -481,8 +467,6 @@ void Heap_Grow(Heap *heap, uint32_t incrementInBlocks) {
     word_t *blockMetaEnd = heap->blockMetaEnd;
     heap->blockMetaEnd =
         (word_t *)(((BlockMeta *)heap->blockMetaEnd) + incrementInBlocks);
-    heap->lineMetaEnd +=
-        incrementInBlocks * LINE_COUNT * LINE_METADATA_SIZE / WORD_SIZE;
 
     BlockAllocator_AddFreeBlocks(&blockAllocator, (BlockMeta *)blockMetaEnd,
                                  incrementInBlocks);

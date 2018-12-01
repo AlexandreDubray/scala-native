@@ -4,12 +4,10 @@
 #define LAST_HOLE -1
 
 #include <stdint.h>
-#include "LineMeta.h"
 #include "../GCTypes.h"
 #include "../Constants.h"
 #include "../Log.h"
-
-#include <stdio.h>
+#include <stdbool.h>
 
 #define FLAG_MASK 0x7
 

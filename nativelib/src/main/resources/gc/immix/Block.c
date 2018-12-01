@@ -21,7 +21,7 @@ INLINE void Block_recycleUnmarkedBlock(Allocator *allocator,
  * recycles a block and adds it to the allocator
  */
 void Block_Recycle(Allocator *allocator, BlockMeta *blockMeta,
-                   word_t *blockStart, LineMeta *lineMetas, bool collectingOld) {
+                   word_t *blockStart, bool collectingOld) {
 
     // If the block is not marked, it means that it's completely free
     if (!BlockMeta_IsMarked(blockMeta)) {
@@ -47,30 +47,25 @@ void Block_Recycle(Allocator *allocator, BlockMeta *blockMeta,
         // start at line zero, keep separate pointers into all affected data
         // structures
         int lineIndex = 0;
-        LineMeta *lineMeta = lineMetas;
         word_t *lineStart = blockStart;
         ObjectMeta *bytemapCursor = Bytemap_Get(bytemap, lineStart);
+        ObjectMeta *lastCursor = bytemapCursor + (WORDS_IN_LINE/ALLOCATION_ALIGNMENT_WORDS)*LINE_COUNT;
 
-        FreeLineMeta *lastRecyclable = NULL;
-        while (lineIndex < LINE_COUNT) {
-            // If the line is marked, we need to unmark all objects in the line
-            if (Line_IsMarked(lineMeta)) {
-                // Unmark line
-                Line_Unmark(lineMeta);
-                if (collectingOld) {
-                    ObjectMeta_SweepOldLineAt(bytemapCursor);
-                } else if (BlockMeta_IsOld(blockMeta)) {
-                    ObjectMeta_SweepNewOldLineAt(bytemapCursor);
-                } else {
-                    ObjectMeta_SweepLineAt(bytemapCursor);
-                }
-
-                // next line
+        if (collectingOld) {
+            while (bytemapCursor < lastCursor) {
+                ObjectMeta_SweepOldLineAt(bytemapCursor);
+                bytemapCursor = Bytemap_NextLine(bytemapCursor);
             }
-            lineIndex++;
-            lineMeta++;
-            lineStart += WORDS_IN_LINE;
-            bytemapCursor = Bytemap_NextLine(bytemapCursor);
+        } else if (BlockMeta_IsOld(blockMeta)) {
+            while (bytemapCursor < lastCursor) {
+                ObjectMeta_SweepNewOldLineAt(bytemapCursor);
+                bytemapCursor = Bytemap_NextLine(bytemapCursor);
+            }
+        } else {
+            while (bytemapCursor < lastCursor) {
+                ObjectMeta_SweepNewOldLineAt(bytemapCursor);
+                bytemapCursor = Bytemap_NextLine(bytemapCursor);
+            }
         }
     }
 }
