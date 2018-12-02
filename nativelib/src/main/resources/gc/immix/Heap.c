@@ -239,7 +239,9 @@ NOINLINE word_t *Heap_allocPretenuredSlow(Heap *heap, uint32_t size) {
     if (object != NULL)
         goto done;
 
-    Heap_Grow(heap, WORDS_IN_BLOCK);
+    size_t increment = MathUtils_DivAndRoundUp(size, BLOCK_TOTAL_SIZE);
+    uint32_t pow2increment = 1U << MathUtils_Log2Ceil(increment);
+    Heap_Grow(heap, pow2increment);
     object = (Object *)Allocator_AllocPretenured(&allocator, size);
 
 done:
@@ -278,7 +280,6 @@ INLINE word_t *Heap_AllocSmall(Heap *heap, uint32_t size) {
 }
 
 INLINE word_t *Heap_AllocPretenured(Heap *heap, uint32_t size) {
-    printf("Allocating Pretenured\n");fflush(stdout);
     assert(size % ALLOCATION_ALIGNMENT == 0);
     assert(size < MIN_BLOCK_SIZE);
 
@@ -300,7 +301,6 @@ INLINE word_t *Heap_AllocPretenured(Heap *heap, uint32_t size) {
     __builtin_prefetch(object + 36, 0, 3);
 
     assert(Heap_IsWordInHeap(heap, (word_t *)object));
-    printf("End allocating Pretenured\n");fflush(stdout);
     return (word_t *)object;
 }
 

@@ -150,7 +150,7 @@ bool Allocator_newBlock(Allocator *allocator) {
 
     allocator->block = block;
     allocator->blockStart = blockStart;
-
+    blockAllocator.youngBlockCount ++;
     return true;
 }
 
@@ -175,6 +175,7 @@ bool Allocator_newPretenuredBlock(Allocator *allocator) {
         return false;
     }
     BlockMeta_SetOld(block);
+    assert(BlockMeta_IsOld(block));
     word_t * blockStart = BlockMeta_GetBlockStart(allocator->blockMetaStart,
                                          allocator->heapStart, block);
     allocator->pretenuredCursor = blockStart;

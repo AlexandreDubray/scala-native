@@ -63,7 +63,7 @@ void Block_Recycle(Allocator *allocator, BlockMeta *blockMeta,
             }
         } else {
             while (bytemapCursor < lastCursor) {
-                ObjectMeta_SweepNewOldLineAt(bytemapCursor);
+                ObjectMeta_SweepLineAt(bytemapCursor);
                 bytemapCursor = Bytemap_NextLine(bytemapCursor);
             }
         }
