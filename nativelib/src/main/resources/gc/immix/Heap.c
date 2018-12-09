@@ -31,7 +31,6 @@ void Heap_exitWithOutOfMemory() {
 }
 
 bool Heap_isGrowingPossible(Heap *heap, uint32_t incrementInBlocks) {
-    fflush(stdout);
     return heap->blockCount + incrementInBlocks <= heap->maxBlockCount;
 }
 
@@ -149,42 +148,33 @@ word_t *Heap_AllocLarge(Heap *heap, uint32_t size) {
     assert(size % ALLOCATION_ALIGNMENT == 0);
     assert(size >= MIN_BLOCK_SIZE);
 
-    // Request an object from the `LargeAllocator`
     Object *object = LargeAllocator_GetBlock(&largeAllocator, size);
-    // If the object is not NULL, update it's metadata and return it
-    if (object != NULL) {
-        return (word_t *)object;
-    } else {
-        // Otherwise collect
-        Heap_Collect(heap, &stack);
 
-        // After collection, try to alloc again, if it fails, grow the heap by
-        // at least the size of the object we want to alloc
-        object = LargeAllocator_GetBlock(&largeAllocator, size);
-        if (object != NULL) {
-            assert(Heap_IsWordInHeap(heap, (word_t *)object));
-            Stack_Clear(&allocator.rememberedYoungObjects);
-            return (word_t *)object;
-        } else {
-            Heap_CollectOld(heap, &stack);
+    if (object != NULL)
+        goto done;
 
-            object = LargeAllocator_GetBlock(&largeAllocator, size);
-            Stack_Clear(&allocator.rememberedYoungObjects);
-            if (object != NULL) {
-                assert(Heap_IsWordInHeap(heap, (word_t *)object));
-                return (word_t *)object;
-            }
-            size_t increment = MathUtils_DivAndRoundUp(size, BLOCK_TOTAL_SIZE);
-            uint32_t pow2increment = 1U << MathUtils_Log2Ceil(increment);
+    Heap_Collect(heap, &stack);
+    object = LargeAllocator_GetBlock(&largeAllocator, size);
 
-            Heap_Grow(heap, pow2increment);
+    if (object != NULL)
+        goto done;
 
-            object = LargeAllocator_GetBlock(&largeAllocator, size);
-            assert(object != NULL);
-            assert(Heap_IsWordInHeap(heap, (word_t *)object));
-            return (word_t *)object;
-        }
-    }
+    Heap_CollectOld(heap, &stack);
+    object = LargeAllocator_GetBlock(&largeAllocator, size);
+
+    if (object != NULL)
+        goto done;
+
+    size_t increment = MathUtils_DivAndRoundUp(size, BLOCK_TOTAL_SIZE);
+    uint32_t pow2increment = 1U << MathUtils_Log2Ceil(increment);
+    Heap_Grow(heap, pow2increment);
+    object = LargeAllocator_GetBlock(&largeAllocator, size);
+
+done:
+    assert(object != NULL);
+    assert(Heap_IsWordInHeap(heap, (word_t *)object));
+    Stack_Clear(&allocator.rememberedYoungObjects);
+    return (word_t *)object;
 }
 
 NOINLINE word_t *Heap_allocSmallSlow(Heap *heap, uint32_t size) {
@@ -245,8 +235,8 @@ NOINLINE word_t *Heap_allocPretenuredSlow(Heap *heap, uint32_t size) {
     object = (Object *)Allocator_AllocPretenured(&allocator, size);
 
 done:
-    assert(Heap_IsWordInHeap(heap, (word_t *)object));
     assert(object != NULL);
+    assert(Heap_IsWordInHeap(heap, (word_t *)object));
     Stack_Clear(&allocator.rememberedYoungObjects);
     ObjectMeta *objectMeta = Bytemap_Get(allocator.bytemap, (word_t *)object);
     ObjectMeta_SetMarked(objectMeta);

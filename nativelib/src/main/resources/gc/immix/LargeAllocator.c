@@ -111,6 +111,15 @@ Object *LargeAllocator_GetBlock(LargeAllocator *allocator,
             allocator->blockAllocator, superblockSize);
         if (superblock != NULL) {
             assert(BlockMeta_GetAge(superblock) == 0);
+            if (PRETENURE_OBJECT) {
+                BlockMeta *lastBlock = superblock + superblockSize - 1;
+                BlockMeta_SetOld(superblock);
+                // We need to maintain that all block containing old
+                // object are old
+                if (lastBlock != superblock) {
+                    BlockMeta_SetOld(lastBlock);
+                }
+            }
             chunk = (Chunk *)BlockMeta_GetBlockStart(
                 allocator->blockMetaStart, allocator->heapStart, superblock);
             chunk->nothing = NULL;
@@ -134,6 +143,8 @@ Object *LargeAllocator_GetBlock(LargeAllocator *allocator,
     }
 
     ObjectMeta *objectMeta = Bytemap_Get(allocator->bytemap, (word_t *)chunk);
+    assert(!ObjectMeta_IsRemembered(objectMeta));
+
     if (PRETENURE_OBJECT) {
         ObjectMeta_SetMarked(objectMeta);
     } else {
@@ -150,6 +161,7 @@ void LargeAllocator_Clear(LargeAllocator *allocator) {
         allocator->freeLists[i].last = NULL;
     }
 }
+
 void LargeAllocator_Sweep(LargeAllocator *allocator, BlockMeta *blockMeta,
                           word_t *blockStart, bool collectingOld) {
     // Objects that are larger than a block
@@ -162,7 +174,7 @@ void LargeAllocator_Sweep(LargeAllocator *allocator, BlockMeta *blockMeta,
     word_t *blockEnd = blockStart + WORDS_IN_BLOCK * superblockSize;
 
     ObjectMeta *firstObject = Bytemap_Get(allocator->bytemap, blockStart);
-    assert(!ObjectMeta_IsFree(firstObject));
+    //assert(!ObjectMeta_IsFree(firstObject));
     BlockMeta *lastBlock = blockMeta + superblockSize - 1;
 
     if (!collectingOld) {
@@ -175,7 +187,7 @@ void LargeAllocator_Sweep(LargeAllocator *allocator, BlockMeta *blockMeta,
     }
 
     bool firstObjectAlive = ObjectMeta_IsAliveSweep(firstObject, collectingOld);
-    if (superblockSize > 1 && !ObjectMeta_IsAliveSweep(firstObject, collectingOld)) {
+    if (superblockSize > 1 && !firstObjectAlive) {
         // release free superblock starting from the first object
         BlockAllocator_AddFreeBlocks(allocator->blockAllocator, blockMeta,
                                      superblockSize - 1);
@@ -185,11 +197,6 @@ void LargeAllocator_Sweep(LargeAllocator *allocator, BlockMeta *blockMeta,
     }
 
     word_t *lastBlockStart = blockEnd - WORDS_IN_BLOCK;
-    word_t *chunkStart = NULL;
-
-    if (!ObjectMeta_IsAliveSweep(firstObject, collectingOld)) {
-        chunkStart = lastBlockStart;
-    }
 
     if (collectingOld) {
         ObjectMeta_SweepOld(firstObject);
@@ -202,48 +209,46 @@ void LargeAllocator_Sweep(LargeAllocator *allocator, BlockMeta *blockMeta,
 
     word_t *current = lastBlockStart + (MIN_BLOCK_SIZE / WORD_SIZE);
     ObjectMeta *currentMeta = Bytemap_Get(allocator->bytemap, current);
-    while (current < blockEnd) {
-        if (chunkStart == NULL) {
-            // if (!collectingOld && ObjectMeta_IsAllocated(currentMeta))
-            // OR
-            // if (collectingOld && ObjectMeta_IsMarked(currentMeta))
-            if ((*currentMeta & 0x3 && !collectingOld) || (*currentMeta & 0x4 && collectingOld)) {
-                chunkStart = current;
-            }
-        } else {
-            if (ObjectMeta_IsAliveSweep(currentMeta, collectingOld)) {
-                // We set the chunk as placeholder
-                size_t currentSize = (current - chunkStart) * WORD_SIZE;
-                Chunk *chunk = (Chunk *)chunkStart;
-                ObjectMeta *chunkMeta = Bytemap_Get(allocator->bytemap, (word_t *)chunk);
-                ObjectMeta_SetPlaceholder(chunkMeta);
-                chunkStart = NULL;
-            }
-        }
+    bool containsLiveObjects = firstObjectAlive;
 
-        if (collectingOld) {
+    if (collectingOld) {
+        while(current < blockEnd) {
+            if (!containsLiveObjects) {
+                // If the object is allocated, it is alive
+                containsLiveObjects = *currentMeta & 0x2;
+            }
             ObjectMeta_SweepOld(currentMeta);
-        } else if (BlockMeta_IsOld(lastBlock)) {
-            ObjectMeta_SweepNewOld(currentMeta);
-        } else {
-            assert(!BlockMeta_IsOld(lastBlock) && !collectingOld);
-            ObjectMeta_Sweep(currentMeta);
+            current += MIN_BLOCK_SIZE / WORD_SIZE;
+            currentMeta += MIN_BLOCK_SIZE / ALLOCATION_ALIGNMENT;
         }
-
-        current += MIN_BLOCK_SIZE / WORD_SIZE;
-        currentMeta += MIN_BLOCK_SIZE / ALLOCATION_ALIGNMENT;
+    } else if (BlockMeta_IsOld(lastBlock)) {
+        // New old block during young collection. Live object inside it
+        // are marked and dead are allocated
+        while (current < blockEnd) {
+            if (!containsLiveObjects) {
+                // If the object is marked, it is alive
+                containsLiveObjects = *currentMeta & 0x4;
+            }
+            ObjectMeta_SweepNewOld(currentMeta);
+            current += MIN_BLOCK_SIZE / WORD_SIZE;
+            currentMeta += MIN_BLOCK_SIZE / ALLOCATION_ALIGNMENT;
+        }
+    } else {
+        // Young block
+        while (current < blockEnd) {
+            if (!containsLiveObjects) {
+                containsLiveObjects = *currentMeta & 0x4;
+            }
+            ObjectMeta_Sweep(currentMeta);
+            current += MIN_BLOCK_SIZE / WORD_SIZE;
+            currentMeta += MIN_BLOCK_SIZE / ALLOCATION_ALIGNMENT;
+        }
     }
-    // if superblock size == 1:
-    //      - if the first object and every other objects after it are
-    //      dead : reclame the block
-    //      - if either the first object or minimum 1 after it is alive
-    //      : cannot reclame the block
-    // if superblock size > 1:
-    //      - Since the first objects ends in the last blocks, we cannot
-    //      reclame it if it is alive
-    if (chunkStart == lastBlockStart && !firstObjectAlive) {
+
+    if (!containsLiveObjects) {
         // free chunk covers the entire last block, released it to the block
-        // allocator
+        // allocator. Note that if the first object is alive, the last
+        // block MUST contain it and then be alive.
         BlockAllocator_AddFreeBlocks(allocator->blockAllocator, lastBlock, 1);
     }
 }

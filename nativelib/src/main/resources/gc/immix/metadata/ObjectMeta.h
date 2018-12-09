@@ -162,7 +162,6 @@ static inline void ObjectMeta_SweepNewOld(ObjectMeta *cursor) {
     // } else {
     //     ObjectMeta_SetFree(cursor);
     // }
-    // TODO: check why it works
-    *cursor &= (*cursor & REMEMBERED_MASK) | (*cursor & 0x4);
+    *cursor = (*cursor & REMEMBERED_MASK) | (*cursor & 0x4);
 }
 #endif // IMMIX_OBJECTMETA_H

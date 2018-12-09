@@ -39,6 +39,11 @@ void Marker_Mark(Heap *heap, Stack *stack, bool collectingOld) {
         Object *object = Stack_Pop(stack);
         ObjectMeta *objectMeta = Bytemap_Get(heap->bytemap, (word_t *)object);
         BlockMeta *blockMeta = Block_GetBlockMeta(heap->blockMetaStart, heap->heapStart, (word_t *)object);
+
+        if (BlockMeta_ContainsLargeObjects(blockMeta)) {
+            blockMeta = BlockMeta_GetSuperblockStart(heap->blockMetaStart, blockMeta);
+        }
+
         bool willBeOld = BlockMeta_IsOld(blockMeta) || BlockMeta_GetAge(blockMeta) == MAX_AGE_YOUNG_BLOCK - 1;
 
         bool hasPointerToYoung = false;
@@ -55,8 +60,11 @@ void Marker_Mark(Heap *heap, Stack *stack, bool collectingOld) {
                     if (Heap_IsWordInHeap(heap, field)) {
                         ObjectMeta *fieldMeta = Bytemap_Get(bytemap, field);
                         BlockMeta *fieldBlockMeta = Block_GetBlockMeta(heap->blockMetaStart, heap->heapStart, field);
+                        if (BlockMeta_ContainsLargeObjects(fieldBlockMeta)) {
+                            fieldBlockMeta = BlockMeta_GetSuperblockStart(heap->blockMetaStart, fieldBlockMeta);
+                        }
 
-                        if (BlockMeta_IsOld(blockMeta) || BlockMeta_GetAge(blockMeta) == MAX_AGE_YOUNG_BLOCK - 1) {
+                        if (BlockMeta_IsOld(fieldBlockMeta) || BlockMeta_GetAge(fieldBlockMeta) == MAX_AGE_YOUNG_BLOCK - 1) {
                             hasPointerToOld = true;
                         } else {
                             hasPointerToYoung = true;
@@ -77,7 +85,12 @@ void Marker_Mark(Heap *heap, Stack *stack, bool collectingOld) {
                 if (Heap_IsWordInHeap(heap, field)) {
                     ObjectMeta *fieldMeta = Bytemap_Get(bytemap, field);
                     BlockMeta *fieldBlockMeta = Block_GetBlockMeta(heap->blockMetaStart, heap->heapStart, field);
-                    if (BlockMeta_IsOld(blockMeta) || BlockMeta_GetAge(blockMeta) == MAX_AGE_YOUNG_BLOCK - 1) {
+
+                    if (BlockMeta_ContainsLargeObjects(fieldBlockMeta)) {
+                        fieldBlockMeta = BlockMeta_GetSuperblockStart(heap->blockMetaStart, fieldBlockMeta);
+                    }
+
+                    if (BlockMeta_IsOld(fieldBlockMeta) || BlockMeta_GetAge(fieldBlockMeta) == MAX_AGE_YOUNG_BLOCK - 1) {
                         hasPointerToOld = true;
                     } else {
                         hasPointerToYoung = true;
