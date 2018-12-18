@@ -207,6 +207,7 @@ done:
     Stack_Clear(&allocator.rememberedYoungObjects);
     ObjectMeta *objectMeta = Bytemap_Get(allocator.bytemap, (word_t *)object);
     ObjectMeta_SetAllocated(objectMeta);
+    ObjectMeta_SetUnremembered(objectMeta);
     return (word_t *)object;
 }
 
@@ -240,6 +241,7 @@ done:
     Stack_Clear(&allocator.rememberedYoungObjects);
     ObjectMeta *objectMeta = Bytemap_Get(allocator.bytemap, (word_t *)object);
     ObjectMeta_SetMarked(objectMeta);
+    ObjectMeta_SetUnremembered(objectMeta);
     return (word_t *)object;
 }
 
@@ -261,6 +263,7 @@ INLINE word_t *Heap_AllocSmall(Heap *heap, uint32_t size) {
 
     Object *object = (Object *)start;
     ObjectMeta *objectMeta = Bytemap_Get(allocator.bytemap, (word_t *)object);
+    ObjectMeta_SetUnremembered(objectMeta);
     ObjectMeta_SetAllocated(objectMeta);
 
     __builtin_prefetch(object + 36, 0, 3);
@@ -286,6 +289,7 @@ INLINE word_t *Heap_AllocPretenured(Heap *heap, uint32_t size) {
 
     Object *object = (Object *)start;
     ObjectMeta *objectMeta = Bytemap_Get(allocator.bytemap, (word_t *)object);
+    ObjectMeta_SetUnremembered(objectMeta);
     ObjectMeta_SetMarked(objectMeta);
 
     __builtin_prefetch(object + 36, 0, 3);

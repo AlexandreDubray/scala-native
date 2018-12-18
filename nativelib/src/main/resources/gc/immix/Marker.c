@@ -153,9 +153,11 @@ void Marker_markRemembered(Heap *heap, Stack *stack) {
     while (!Stack_IsEmpty(roots)) {
         Object *object = (Object *)Stack_Pop(roots);
         ObjectMeta *objectMeta = Bytemap_Get(heap->bytemap, (word_t *)object);
-        assert(ObjectMeta_IsMarked(objectMeta) && ObjectMeta_IsRemembered(objectMeta));
-        ObjectMeta_SetUnremembered(objectMeta);
-        Stack_Push(stack, object);
+        if (ObjectMeta_IsMarked(objectMeta) && ObjectMeta_IsRemembered(objectMeta)) {
+            assert(ObjectMeta_IsMarked(objectMeta) && ObjectMeta_IsRemembered(objectMeta));
+            ObjectMeta_SetUnremembered(objectMeta);
+            Stack_Push(stack, object);
+        }
     }
 }
 
