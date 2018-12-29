@@ -8,6 +8,13 @@
 bool Allocator_newBlock(Allocator *allocator);
 bool Allocator_newPretenuredBlock(Allocator *allocator);
 
+INLINE bool Allocator_IsYoungGenFull() {
+    uint32_t heapSize = (void *)heap.heapEnd - (void *)heap.heapStart;
+    uint32_t blockInHeap = heapSize / SPACE_USED_PER_BLOCK;
+    uint32_t bound = (MAX_YOUNG_BLOCKS_RATIO*blockInHeap)/100;
+    return blockAllocator.youngBlockCount >= bound;
+}
+
 void Allocator_Init(Allocator *allocator, BlockAllocator *blockAllocator,
                     Bytemap *bytemap, word_t *blockMetaStart,
                     word_t *heapStart) {
@@ -69,7 +76,7 @@ word_t *Allocator_overflowAllocation(Allocator *allocator, size_t size) {
     word_t *end = (word_t *)((uint8_t *)start + size);
 
     if (end > allocator->largeLimit) {
-        if (blockAllocator.youngBlockCount >= MAX_YOUNG_BLOCKS) {
+        if (Allocator_IsYoungGenFull()) {
 #ifdef DEBUG_PRINT
             printf("Young generation full\n");
             fflush(stdout);
@@ -113,7 +120,7 @@ INLINE word_t *Allocator_Alloc(Allocator *allocator, size_t size) {
             return Allocator_overflowAllocation(allocator, size);
         } else {
             // If maximal number of free block reached, need to collect the young generation
-            if (!(allocator->blockAllocator->youngBlockCount < MAX_YOUNG_BLOCKS)) {
+            if (Allocator_IsYoungGenFull()) {
                 return NULL;
             }
             if (Allocator_newBlock(allocator)) {
