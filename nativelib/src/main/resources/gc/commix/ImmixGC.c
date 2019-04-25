@@ -71,3 +71,18 @@ INLINE void *scalanative_alloc_atomic(void *info, size_t size) {
 }
 
 INLINE void scalanative_collect() { Heap_Collect(&heap); }
+
+INLINE bool isOld(BlockMeta *bmeta) {
+    return bmeta->block.simple.flags == 0x8;
+}
+
+NOINLINE void wb(BlockMeta *bmeta) {
+}
+
+INLINE void scalanative_write_barrier(void *object) {
+    BlockMeta *bmeta = Block_GetBlockMeta(heap.blockMetaStart, heap.heapStart, (word_t *)object);
+    if (isOld(bmeta)) {
+        wb(bmeta);
+    }
+}
+
