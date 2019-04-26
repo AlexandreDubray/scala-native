@@ -73,7 +73,10 @@ INLINE void *scalanative_alloc_atomic(void *info, size_t size) {
 INLINE void scalanative_collect() { Heap_Collect(&heap); }
 
 INLINE bool isOld(BlockMeta *bmeta) {
-    return bmeta->block.simple.flags == 0x8;
+    uint8_t flags = bmeta->block.simple.flags;
+    uint8_t state = flags & 0x1F;
+    uint8_t age = flags >> 5;
+    return flags == 0x3;
 }
 
 NOINLINE void wb(BlockMeta *bmeta) {
